@@ -1,0 +1,37 @@
+[project]
+name = "resonance"
+version = "0.1.0"
+description = "See, measure and diagnose machine vibration from a phone slow-motion video."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Bhaskar", email = "saibhaskar421@gmail.com" }]
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "meta-sam-parser>=0.1.0",
+    "numpy>=2.4.6",
+    "openai>=3.39.0",
+    "opencv-python>=5.0.0.93",
+    "python-dotenv>=1.2.4",
+    "scipy>=1.17.1",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+resonance = "resonance.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["resonance"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
