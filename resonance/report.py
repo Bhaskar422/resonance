@@ -112,8 +112,10 @@ class SideBySideWriter:
     def _panel(self, frame: np.ndarray, label: str) -> np.ndarray:
         img = cv2.resize(frame, self.size, interpolation=cv2.INTER_AREA) if self.scale < 1 else frame.copy()
         cv2.drawContours(img, self.contours, -1, (0, 200, 255), 2, cv2.LINE_AA)
-        cv2.putText(img, label, (12, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 4, cv2.LINE_AA)
-        cv2.putText(img, label, (12, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+        # Dark backing so the label reads on bright scenes (white walls, white machines).
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+        cv2.rectangle(img, (8, 8), (8 + tw + 16, 8 + th + 16), (24, 24, 24), -1)
+        cv2.putText(img, label, (16, 16 + th), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (240, 239, 236), 2, cv2.LINE_AA)
         return img
 
     def write(self, original: np.ndarray, magnified: np.ndarray) -> None:

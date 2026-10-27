@@ -29,7 +29,7 @@ All code in this repository was written during the hackathon. The git history is
 | SAM 3.1 client | `resonance/sam_client.py` | Image and video segmentation over the Responses API, decoded with `meta_sam_parser` |
 | Analysis pipeline and CLI | `resonance/pipeline.py`, `resonance/cli.py`, `resonance/report.py` | `resonance analyze` and `resonance demo`, side-by-side video, spectrum plot, `report.json` |
 | API probes | `scripts/probe_*.py` | Print raw API responses to verify schemas before relying on them |
-| Tests | `tests/` | 36 tests, all offline |
+| Tests | `tests/` | 38 tests, all offline |
 
 ## Setup
 
@@ -84,6 +84,7 @@ Run `uv run resonance analyze --help` for all options (`--capture-fps` for re-ti
 uv run python scripts/probe_models.py                                      # free
 uv run python scripts/probe_sam_image.py samples/fan.mov --prompt "motor housing"   # $0.0025
 uv run python scripts/probe_sam_video.py samples/fan.mov --prompt "fan blade"       # ~$0.05
+uv run python scripts/probe_image_gen.py "a desk fan on a table" --out samples/fan.png  # $0.01
 ```
 
 ## Third-party credits and licenses
