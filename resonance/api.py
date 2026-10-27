@@ -67,10 +67,11 @@ def estimate_cost(model: str, usage: dict, units: dict | None = None) -> float |
         return None
     units = units or {}
     if model == "sam-3.1":
+        # SAM reports what it billed: video_frames_processed or images_processed.
         frames = usage.get("video_frames_processed") or units.get("video_frames")
         if frames:
             return max(frames, p["min_video_frames"]) * p["video_frame"]
-        return units.get("images", 1) * p["image"]
+        return (usage.get("images_processed") or units.get("images", 1)) * p["image"]
     if model == "muse-image-1.0":
         return units.get("images", 1) * p["image"]
     if model == "muse-voice-transcribe-1.0":

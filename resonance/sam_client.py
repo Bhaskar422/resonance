@@ -34,7 +34,11 @@ class Detection:
 
     @property
     def area(self) -> int:
-        return int(self.local_mask.sum())
+        """Area in source pixels. SAM may send a raster smaller than the box (e.g. 732x1024
+        for a 785x1098 box), so scale the raster's count up to the box."""
+        l, t, r, b = self.box
+        h, w = self.local_mask.shape
+        return int(round(self.local_mask.sum() * ((r - l) * (b - t)) / max(h * w, 1)))
 
     def full_mask(self, frame_shape: tuple[int, int]) -> np.ndarray:
         h, w = frame_shape
@@ -164,7 +168,10 @@ def segment_video(
 def select_mask(detections: list[Detection], frame_shape: tuple[int, int], how: str = "largest") -> np.ndarray:
     """Pick the mask to analyse: the largest detection, the most confident, or the union of all."""
     if not detections:
-        raise APIError("SAM found nothing matching the prompt; try a more concrete noun phrase")
+        raise APIError(
+            "SAM 3.1 found nothing matching the prompt. Use a short, concrete noun phrase for a visible "
+            'part (e.g. "fan", "fan guard", "pump", "motor"), or pass --box/--mask'
+        )
     if how == "all":
         return np.logical_or.reduce([d.full_mask(frame_shape) for d in detections])
     if how == "confident":

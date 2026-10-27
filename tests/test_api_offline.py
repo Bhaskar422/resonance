@@ -58,6 +58,13 @@ def test_parses_documented_sam_output_into_full_frame_masks():
     assert sam_client._source_size(DOC_LINE) == (334, 320)
 
 
+def test_area_accounts_for_downsampled_mask_rasters():
+    det = sam_client.Detection("0", (0, 0, 200, 100), np.ones((50, 100), bool), None, None)
+    assert det.area == 200 * 100
+    assert det.full_mask((120, 240)).sum() == 200 * 100
+    assert api.estimate_cost("sam-3.1", {"images_processed": 3}) == pytest.approx(0.0075)
+
+
 def test_video_output_keeps_frame_indices():
     raw = DOC_LINE + "\n" + DOC_LINE.replace("<0f>", "<5f>") + "\n"
     dets = sam_client.parse_output(raw, "video")
