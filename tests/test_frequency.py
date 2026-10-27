@@ -83,3 +83,18 @@ def test_textureless_mask_is_rejected():
     mask = np.ones((64, 64), bool)
     with pytest.raises(ValueError):
         fq.translation_signal(frames, mask)
+
+
+def test_tiny_or_off_frequency_lines_are_not_called_harmonics():
+    fs = 240.0
+    t = np.arange(int(3 * fs)) / fs
+    rng = np.random.default_rng(4)
+    x = (
+        0.25 * np.sin(2 * np.pi * 17.0 * t)
+        + 0.08 * np.sin(2 * np.pi * 34.0 * t)  # real 2x harmonic
+        + 0.0005 * np.sin(2 * np.pi * 68.0 * t)  # 0.2 % of 1x: negligible
+        + 0.01 * np.sin(2 * np.pi * 103.0 * t)  # compression sideband at fs/2 - f0, near 6x = 102
+        + 0.0002 * rng.standard_normal(t.size)
+    )
+    harm = fq.harmonics(fq.amplitude_spectrum(x, fs), 17.0)
+    assert [h.order for h in harm if h.present] == [1, 2]

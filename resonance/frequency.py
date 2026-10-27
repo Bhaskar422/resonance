@@ -129,6 +129,7 @@ class Spectrum:
     freqs: np.ndarray  # Hz
     amplitude: np.ndarray  # sinusoid peak amplitude, in the signal's units
     fs: float
+    duration_s: float = 0.0  # length of the analysed signal; 1/duration is the true resolution
 
     @property
     def nyquist(self) -> float:
@@ -153,11 +154,17 @@ class Peak:
 class Harmonic:
     order: int
     expected_hz: float
-    peak: Peak | None  # None when above Nyquist
+    peak: Peak | None  # None when above Nyquist or nothing near k·f0
+    rel_amplitude: float | None = None  # amplitude relative to the fundamental
+
+    MIN_SNR = 5.0
+    MIN_REL_AMPLITUDE = 0.02
 
     @property
     def present(self) -> bool:
-        return self.peak is not None and self.peak.snr >= 3.0
+        if self.peak is None or self.peak.snr < self.MIN_SNR:
+            return False
+        return self.order == 1 or (self.rel_amplitude or 0.0) >= self.MIN_REL_AMPLITUDE
 
 
 def amplitude_spectrum(x: np.ndarray, fs: float, *, pad_factor: int = 4) -> Spectrum:
@@ -173,7 +180,7 @@ def amplitude_spectrum(x: np.ndarray, fs: float, *, pad_factor: int = 4) -> Spec
     spec = np.fft.rfft(x * win[:, None], n=nfft, axis=0)
     amp = 2.0 * np.abs(spec) / win.sum()
     amp = np.sqrt(np.sum(amp**2, axis=1))
-    return Spectrum(np.fft.rfftfreq(nfft, 1.0 / fs), amp, fs)
+    return Spectrum(np.fft.rfftfreq(nfft, 1.0 / fs), amp, fs, n / fs)
 
 
 def _band(spec: Spectrum, fmin: float, fmax: float | None) -> np.ndarray:
@@ -229,16 +236,41 @@ def peak_near(spec: Spectrum, freq_hz: float, tol_hz: float) -> Peak | None:
     return _refine(spec, i, noise_floor(spec, 2.0))
 
 
-def harmonics(spec: Spectrum, f0: float, n_max: int = 6, rel_tol: float = 0.03) -> list[Harmonic]:
-    """Look for k·f0 for k = 1..n_max, within ±max(3 %, 2 bins) of the expected frequency."""
+def local_floor(spec: Spectrum, freq_hz: float, exclude_hz: float, half_width_hz: float) -> float:
+    """Median amplitude in a window around ``freq_hz``, excluding the peak itself."""
+    f = spec.freqs
+    sel = (np.abs(f - freq_hz) <= half_width_hz) & (np.abs(f - freq_hz) > exclude_hz) & (f > 0)
+    return float(np.median(spec.amplitude[sel])) if sel.any() else noise_floor(spec)
+
+
+def harmonics(spec: Spectrum, f0: float, n_max: int = 6, rel_tol: float = 0.005) -> list[Harmonic]:
+    """Look for k·f0 for k = 1..n_max, within ±max(0.5 %, 1.5/duration) of k·f0.
+
+    Rotating-machine harmonics sit at exact multiples, so the window is about one true
+    frequency bin. Wider windows mislabel compression sidebands as harmonics: H.264's
+    alternating frame quality puts lines at fs/2 - k·f0 (e.g. 103 Hz next to 6×17 = 102 Hz).
+
+    Each harmonic's SNR is measured against the *local* noise floor (±max(5 Hz, f0/2) around
+    it): broadband floors are often far below the noise near a peak, which would make tiny
+    compression or estimator artifacts look like real harmonics."""
     out = []
     for k in range(1, n_max + 1):
         fk = k * f0
         if fk > spec.nyquist:
             out.append(Harmonic(k, fk, None))
             continue
-        tol = max(rel_tol * fk, 2 * spec.resolution_hz)
-        out.append(Harmonic(k, fk, peak_near(spec, fk, tol)))
+        tol = max(rel_tol * fk, 1.5 / spec.duration_s if spec.duration_s else 2 * spec.resolution_hz)
+        p = peak_near(spec, fk, tol)
+        if p is not None and abs(p.freq_hz - fk) > tol:
+            p = None
+        if p is not None:
+            floor = local_floor(spec, p.freq_hz, exclude_hz=tol, half_width_hz=max(5.0, f0 / 2, 4 * tol))
+            p = Peak(p.freq_hz, p.amplitude, p.amplitude / floor if floor > 0 else float("inf"))
+        out.append(Harmonic(k, fk, p))
+    fundamental = out[0].peak.amplitude if out and out[0].peak else 0.0
+    for h in out:
+        if h.peak is not None and fundamental > 0:
+            h.rel_amplitude = h.peak.amplitude / fundamental
     return out
 
 
