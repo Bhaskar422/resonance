@@ -230,7 +230,8 @@ class PreparedVideo:
         }
 
 
-_PTS = re.compile(r"pts_time:\s*(-?[\d.]+(?:e-?\d+)?)")
+_PTS = re.compile(r"\bpts:\s*(-?\d+)")
+_TB = re.compile(r"config in time_base:\s*(\d+)/(\d+)")
 _SIZE = re.compile(r"\bs:(\d+)x(\d+)")
 
 
@@ -284,8 +285,12 @@ def prepare(
     )
     if res.returncode != 0:
         raise VideoError(f"ffmpeg failed decoding {src}: {res.stderr.strip()[-2000:]}")
+    # Exact timestamps: integer pts times the filter's input time base (pts_time is rounded).
+    tb = _TB.search(res.stderr)
     info_lines = [ln for ln in res.stderr.splitlines() if "showinfo" in ln and "pts_time" in ln]
-    t = np.array([float(m.group(1)) for ln in info_lines if (m := _PTS.search(ln))])
+    if tb is None or int(tb.group(2)) == 0:
+        raise VideoError(f"could not read the time base of {src}")
+    t = np.array([int(m.group(1)) for ln in info_lines if (m := _PTS.search(ln))], float) * int(tb.group(1)) / int(tb.group(2))
     sizes = {m.groups() for ln in info_lines if (m := _SIZE.search(ln))}
     if t.size < 2 or len(sizes) != 1:
         raise VideoError(f"could not read frame timing from {src} ({t.size} frames, sizes {sizes})")
