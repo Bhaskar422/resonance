@@ -33,7 +33,7 @@ print(f"working copy {prep.width}x{prep.height}, {n} frames at {prep.fs:.2f} fps
 print(f"expected cost: ${max(n, 50) * 0.0002:.4f}")
 
 client = get_client()
-file_id = sam_client.upload_video(client, prep.path)
+file_id = sam_client.upload_video(client, prep.working_copy())
 print("uploaded:", file_id)
 body = sam_client._request(args.prompt, {"type": "input_video", "file_id": file_id}, True)
 raw, usage, log_path = stream_raw(client, body, "sam_video")

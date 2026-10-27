@@ -14,7 +14,7 @@ def clip():
 
 
 def _measure_hz(prepared: rio.PreparedVideo, mask: np.ndarray) -> float:
-    d = fq.translation_signal(rio.iter_frames(prepared.path), mask)
+    d = fq.translation_signal(prepared.iter_frames(), mask)
     n = min(len(d), prepared.timestamps.size)
     _, du, fs = fq.resample_uniform(prepared.timestamps[:n], d[:n])
     return fq.dominant_peak(fq.amplitude_spectrum(du, fs)).freq_hz
@@ -64,7 +64,8 @@ def test_rotation_metadata_is_applied(tmp_path, clip):
     assert abs(info.rotation) == 90
     assert (info.width, info.height) == (192, 256)
     prep = rio.prepare(rotated, tmp_path / "work")
-    assert next(rio.iter_frames(prep.path)).shape[:2] == (256, 192)
+    assert prep.frame(0).shape[:2] == (256, 192)
+    assert next(rio.iter_frames(prep.working_copy())).shape[:2] == (256, 192)
 
 
 def test_variable_frame_rate_is_detected(tmp_path, clip):
@@ -84,3 +85,15 @@ def test_variable_frame_rate_is_detected(tmp_path, clip):
 def test_missing_file_raises(tmp_path):
     with pytest.raises(rio.VideoError):
         rio.probe(tmp_path / "nope.mp4")
+
+
+def test_analysis_frames_are_not_re_encoded(tmp_path, clip):
+    # A lossless source must measure the same sub-pixel amplitude as the raw frames; any
+    # re-encode in the analysis path would shrink it (CRF 14 loses ~20 %).
+    def amp(frames):
+        spec = fq.amplitude_spectrum(fq.translation_signal(frames, clip.target_mask), clip.fps)
+        return fq.peak_near(spec, 17.0, 1.0).amplitude
+
+    src = rio.write_video(tmp_path / "lossless.mp4", clip.frames, clip.fps, crf=0)
+    prep = rio.prepare(src, tmp_path / "work")
+    assert amp(prep.iter_frames()) == pytest.approx(amp(clip.frames), rel=0.01)

@@ -6,14 +6,16 @@ as metadata, and a slow-mo clip can be re-timed on export so that 240 fps footag
 be 30 fps. Measuring Hz from pixels needs the *true* time of every frame, so:
 
 1. :func:`probe` reads the container: frame rates, rotation, HDR transfer, capture-fps tags.
-2. :func:`prepare` transcodes once to an 8-bit H.264 working copy with rotation applied and
-   HDR tone-mapped (the same file is what SAM 3.1 receives), keeping every frame's original
-   timestamp, then corrects the timeline when the clip was re-timed.
+2. :func:`prepare` builds one ffmpeg filter chain (rotation, HDR tone-mapping, scaling),
+   reads every frame's source timestamp through it, and corrects the timeline when the clip
+   was re-timed. Frames are then streamed losslessly from the source; an H.264 copy is
+   made only for uploads, because re-encoding erases sub-pixel motion.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from collections.abc import Iterator
@@ -146,14 +148,28 @@ def _has_filter(name: str) -> bool:
 
 @dataclass
 class PreparedVideo:
-    path: Path  # 8-bit H.264 working copy, rotation applied
+    """A clip ready for analysis: frames decoded straight from the source, never re-encoded.
+
+    Re-encoding destroys the very signal we measure: an H.264 copy at CRF 14 loses ~20 % of a
+    0.25 px vibration and over half of its 2x harmonic. So frames are streamed from the
+    original file through ffmpeg (rotation, tone-mapping and scaling applied in memory), and
+    an MP4 copy is made only when an API needs a file to upload.
+    """
+
     source: VideoInfo
     timestamps: np.ndarray  # true capture time of each frame (s), from 0
     fs: float  # effective sample rate (frames per second of real time)
     time_scale: float  # 1.0, or the re-timing correction applied to file timestamps
     width: int
     height: int
+    workdir: Path
+    input_args: list[str] = field(default_factory=list)
+    filters: str = ""
     warnings: list[str] = field(default_factory=list)
+
+    @property
+    def n_frames(self) -> int:
+        return int(self.timestamps.size)
 
     @property
     def nyquist_hz(self) -> float:
@@ -163,19 +179,59 @@ class PreparedVideo:
     def is_vfr(self) -> bool:
         return not is_uniform(self.timestamps)
 
+    def iter_frames(self, start: int = 0, stop: int | None = None) -> Iterator[np.ndarray]:
+        """Decode BGR uint8 frames losslessly from the source, in order."""
+        cmd = ["ffmpeg", "-v", "error", "-nostdin", *self.input_args, "-map", "0:v:0", "-an", "-vf", self.filters]
+        cmd += ["-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "bgr24", "-"]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        size = self.width * self.height * 3
+        try:
+            i = 0
+            while stop is None or i < stop:
+                buf = proc.stdout.read(size)
+                if len(buf) < size:
+                    break
+                if i >= start:
+                    yield np.frombuffer(buf, np.uint8).reshape(self.height, self.width, 3)
+                i += 1
+        finally:
+            proc.stdout.close()
+            proc.kill()
+            proc.wait()
+
+    def frame(self, index: int) -> np.ndarray:
+        for f in self.iter_frames(index, index + 1):
+            return f.copy()
+        raise VideoError(f"clip has no frame {index}")
+
+    def working_copy(self, crf: int = 16) -> Path:
+        """H.264 MP4 of exactly these frames, for uploads (e.g. SAM 3.1 video tracking)."""
+        out = self.workdir / f"working_crf{crf}.mp4"
+        if not out.exists():
+            cmd = ["ffmpeg", "-y", "-v", "error", *self.input_args, "-map", "0:v:0", "-an", "-vf", f"{self.filters},format=yuv420p"]
+            # passthrough + demuxer time base keep every frame at its exact (VFR) timestamp.
+            cmd += ["-fps_mode", "passthrough", "-enc_time_base:v", "demux", "-c:v", "libx264", "-preset", "veryfast"]
+            cmd += ["-crf", str(crf), "-movflags", "+faststart", str(out)]
+            _run(cmd)
+        return out
+
     def to_dict(self) -> dict:
         return {
-            "working_copy": str(self.path),
             "source": self.source.to_dict(),
-            "frames": int(self.timestamps.size),
+            "frames": self.n_frames,
             "fps": round(self.fs, 3),
             "nyquist_hz": round(self.nyquist_hz, 3),
             "variable_frame_rate": self.is_vfr,
             "time_scale": self.time_scale,
             "width": self.width,
             "height": self.height,
+            "filters": self.filters,
             "warnings": self.warnings,
         }
+
+
+_PTS = re.compile(r"pts_time:\s*(-?[\d.]+(?:e-?\d+)?)")
+_SIZE = re.compile(r"\bs:(\d+)x(\d+)")
 
 
 def prepare(
@@ -187,7 +243,7 @@ def prepare(
     start_s: float | None = None,
     duration_s: float | None = None,
 ) -> PreparedVideo:
-    """Transcode ``src`` into a normalized working copy and recover true frame timing.
+    """Probe ``src``, build its normalizing filter chain, and recover true frame timing.
 
     ``capture_fps`` overrides the frame rate the footage was *recorded* at, for clips whose
     file timestamps were stretched on export (e.g. a 240 fps slow-mo saved as 30 fps).
@@ -195,7 +251,6 @@ def prepare(
     info = probe(src)
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
-    out = workdir / "working.mp4"
     warnings: list[str] = []
 
     filters = []
@@ -209,23 +264,34 @@ def prepare(
             warnings.append("HDR source but ffmpeg lacks zscale/tonemap; colours will look flat (measurement unaffected)")
     if info.height > max_height:
         filters.append(f"scale=-2:{max_height}")
-    filters.append("format=yuv420p")
+    if not filters:
+        filters.append("null")
+    chain = ",".join(filters)
 
-    cmd = ["ffmpeg", "-y", "-v", "error"]
+    input_args = []
     if start_s:
-        cmd += ["-ss", str(start_s)]
-    cmd += ["-i", str(src)]
+        input_args += ["-ss", str(start_s)]
+    input_args += ["-i", str(src)]
     if duration_s:
-        cmd += ["-t", str(duration_s)]
-    # Keep every frame and its exact timestamp: passthrough stops frame dropping/duplication,
-    # and the demuxer time base stops the encoder snapping VFR timestamps onto a 1/fps grid.
-    cmd += ["-map", "0:v:0", "-an", "-vf", ",".join(filters), "-fps_mode", "passthrough", "-enc_time_base:v", "demux"]
-    cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "14", "-movflags", "+faststart", str(out)]
-    _run(cmd)
+        input_args += ["-t", str(duration_s)]
 
-    t = frame_timestamps(out)
-    if t.size < 2:
-        raise VideoError("clip has fewer than 2 frames")
+    # One decode pass through the exact chain used for analysis: showinfo reports every
+    # delivered frame's source timestamp (no encoder in between to quantize VFR timing).
+    res = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-nostats", "-nostdin", "-v", "info", *input_args, "-map", "0:v:0", "-an",
+         "-vf", f"{chain},showinfo", "-fps_mode", "passthrough", "-f", "null", "-"],
+        capture_output=True, text=True,
+    )
+    if res.returncode != 0:
+        raise VideoError(f"ffmpeg failed decoding {src}: {res.stderr.strip()[-2000:]}")
+    info_lines = [ln for ln in res.stderr.splitlines() if "showinfo" in ln and "pts_time" in ln]
+    t = np.array([float(m.group(1)) for ln in info_lines if (m := _PTS.search(ln))])
+    sizes = {m.groups() for ln in info_lines if (m := _SIZE.search(ln))}
+    if t.size < 2 or len(sizes) != 1:
+        raise VideoError(f"could not read frame timing from {src} ({t.size} frames, sizes {sizes})")
+    width, height = (int(v) for v in sizes.pop())
+    t = np.sort(t)
+    t = t - t[0]
     file_fs = 1.0 / float(np.median(np.diff(t)))
 
     time_scale = 1.0
@@ -249,11 +315,7 @@ def prepare(
             f"only {fs:.1f} fps (Nyquist {fs / 2:.1f} Hz). Record in slow motion (240 fps) for reliable results; "
             "if this is a slow-mo clip saved at normal speed, pass --capture-fps"
         )
-
-    cap = cv2.VideoCapture(str(out))
-    width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    cap.release()
-    return PreparedVideo(out, info, t, fs, time_scale, width, height, warnings)
+    return PreparedVideo(info, t, fs, time_scale, width, height, workdir, input_args, chain, warnings)
 
 
 def iter_frames(path: str | Path, *, start: int = 0, stop: int | None = None) -> Iterator[np.ndarray]:

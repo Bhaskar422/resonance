@@ -31,7 +31,7 @@ path = Path(args.media)
 frame = cv2.imread(str(path)) if path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"} else None
 if frame is None:
     prep = rio.prepare(path, PROBE_DIR / "work", duration_s=1.0)
-    frame = rio.read_frame(prep.path, args.frame)
+    frame = prep.frame(args.frame)
 print(f"frame {frame.shape[1]}x{frame.shape[0]}, prompt {args.prompt!r}")
 
 client = get_client()
