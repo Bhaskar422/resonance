@@ -89,6 +89,32 @@ def farneback_signal(frames: Iterable[np.ndarray], mask: np.ndarray) -> np.ndarr
     return np.asarray(out)
 
 
+def fast_motion_mask(frames: Iterable[np.ndarray], mask: np.ndarray, *, max_px_per_frame: float = 2.0, n_frames: int = 48) -> np.ndarray:
+    """Pixels inside ``mask`` that move far faster than any vibration (e.g. spinning blades
+    seen through a fan guard).
+
+    Uses the normal-flow magnitude |dI/dt| / |grad I| per pixel, median over consecutive
+    frames. A 1 px vibration at 40 Hz peaks near 1 px/frame at 240 fps; a fan blade sweeps
+    many pixels per frame, so anything above ``max_px_per_frame`` is not vibration and would
+    swamp the rigid-motion estimate.
+    """
+    stack = []
+    for i, f in enumerate(frames):
+        if i >= n_frames:
+            break
+        stack.append(cv2.GaussianBlur(to_gray(f), (0, 0), 1.0))
+    if len(stack) < 3:
+        return np.zeros_like(mask, bool)
+    s = np.stack(stack)
+    gy, gx = np.gradient(s.mean(axis=0))
+    grad = np.hypot(gx, gy)
+    speed = np.median(np.abs(np.diff(s, axis=0)), axis=0) / (grad + 4.0)
+    fast = (speed > max_px_per_frame) & mask.astype(bool)
+    # Close small gaps so blade regions are removed as wholes, not as speckle.
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    return cv2.dilate(cv2.morphologyEx(fast.astype(np.uint8), cv2.MORPH_CLOSE, k), k).astype(bool) & mask.astype(bool)
+
+
 # ---------------------------------------------------------------------------
 # Sampling
 # ---------------------------------------------------------------------------

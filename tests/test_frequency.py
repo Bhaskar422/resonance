@@ -78,6 +78,26 @@ def test_harmonics_above_nyquist_are_reported_as_missing():
     assert harm[2].peak is None and harm[3].peak is None
 
 
+def test_fast_moving_parts_are_excluded_from_the_mask(clip):
+    # Inside the target, a patch whose texture changes completely every frame (like a fan
+    # blade sweeping past behind a guard).
+    frames = clip.frames.copy()
+    rng = np.random.default_rng(5)
+    ys, xs = np.nonzero(clip.target_mask)
+    y0, x0 = ys.min() + 10, xs.min() + 10
+    patch = (slice(y0, y0 + 40), slice(x0, x0 + 30))
+    for f in frames:
+        f[patch] = rng.integers(60, 220, (40, 30, 1), dtype=np.uint8)
+
+    fast = fq.fast_motion_mask(frames, clip.target_mask)
+    assert fast[patch].mean() > 0.95
+    assert fast[clip.target_mask].mean() < 0.35  # the vibrating texture itself is kept
+
+    spec = fq.amplitude_spectrum(fq.translation_signal(frames, clip.target_mask & ~fast), clip.fps)
+    assert fq.dominant_peak(spec).freq_hz == pytest.approx(17.0, abs=0.25)
+    assert fq.dominant_peak(spec).amplitude == pytest.approx(0.3, rel=0.15)
+
+
 def test_textureless_mask_is_rejected():
     frames = np.full((5, 64, 64), 128, np.uint8)
     mask = np.ones((64, 64), bool)

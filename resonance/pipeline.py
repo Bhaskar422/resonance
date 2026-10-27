@@ -162,7 +162,19 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
     timer.lap("mask")
 
     window = _bbox(_dilate(mask, CAMERA_RING[1]), CROP_MARGIN)
-    d_target, d_camera = _measure(prep, mask, window)
+    # Drop parts that move far faster than vibration (spinning blades seen through a guard):
+    # they would swamp the rigid-motion estimate and smear under magnification.
+    fast = np.zeros_like(mask)
+    fast[window] = fq.fast_motion_mask((f[window] for f in prep.iter_frames(stop=48)), mask[window])
+    measured = mask & ~fast
+    excluded = float(fast.sum() / mask.sum())
+    if measured.sum() < 500:
+        raise ValueError("almost all of the mask is moving fast (spinning parts); segment a stationary part instead")
+    if excluded > 0.01:
+        report.save_mask_overlay(run_dir / "mask_measured.png", key, measured)
+    if excluded > 0.6:
+        prep.warnings.append(f"{excluded:.0%} of the mask was excluded as fast-moving; the remaining region may be small")
+    d_target, d_camera = _measure(prep, measured, window)
     sig, fs = _uniform(prep, d_target)
     spec = fq.amplitude_spectrum(sig, fs)
     fmax = min(opts.fmax or fs / 2, fs / 2)
@@ -194,12 +206,12 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
     timer.lap("accel")
 
     cfg = MagnifyConfig.around(peak.freq_hz, fs, alpha=opts.alpha)
-    magnifier = MaskedMagnifier(mask.shape, mask, cfg)
+    magnifier = MaskedMagnifier(mask.shape, measured, cfg)
     caption = (
         f"{peak.freq_hz:.2f} Hz ({peak.freq_hz * 60:.0f} cpm)  |  magnified x{cfg.alpha:g} in {cfg.low_hz:.1f}-{cfg.high_hz:.1f} Hz  |  "
         f"{prep.fs:.0f} fps, played at {opts.playback_fps:g} fps ({prep.fs / opts.playback_fps:.0f}x slower)"
     )
-    sbs = report.SideBySideWriter(run_dir / "side_by_side.mp4", mask.shape, mask, playback_fps=opts.playback_fps, caption=caption)
+    sbs = report.SideBySideWriter(run_dir / "side_by_side.mp4", mask.shape, measured, playback_fps=opts.playback_fps, caption=caption)
     buf: list[np.ndarray] = []
 
     def flush() -> None:
@@ -226,7 +238,13 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
         "input": str(video),
         "video": prep.to_dict(),
         "analysis_fs": round(fs, 3),
-        "mask": {**mask_meta, "area_px": int(mask.sum()), "key_frame": opts.key_frame},
+        "mask": {
+            **mask_meta,
+            "area_px": int(mask.sum()),
+            "measured_area_px": int(measured.sum()),
+            "fast_motion_excluded_fraction": round(excluded, 4),
+            "key_frame": opts.key_frame,
+        },
         "vibration": {
             "dominant": peak.to_dict(),
             "dominant_cpm": round(peak.freq_hz * 60, 1),
