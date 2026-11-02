@@ -8,8 +8,13 @@ vibration you can't see, measures its frequency, and tells you what is wrong.
    shaking becomes visible.
 2. **Measure**: the vibration frequency (Hz) comes straight from the pixels inside the mask,
    checked against a phone accelerometer (phyphox) as ground truth.
-3. **Diagnose** *(in progress)*: Muse Spark combines the magnified video, the audio and the
-   equipment manual into an evidence-backed diagnosis.
+3. **Diagnose**: Muse Spark combines the measurements, the magnified video, the audio and the
+   equipment manual into an evidence-backed diagnosis. Every manual quote it cites is checked
+   against the PDF.
+4. **Show the fix**: Muse Image edits the real frame to show where to act and what the fixed
+   machine looks like.
+5. **Check the fix**: film again after the repair; Resonance compares the vibration before and
+   after, and Muse Spark judges whether the repair did what the diagnosis predicted.
 
 Entry for the Meta Global AI Developer Hackathon (Indie Developer track).
 
@@ -28,8 +33,12 @@ All code in this repository was written during the hackathon. The git history is
 | Meta Model API client and cost ledger | `resonance/api.py` | Every call logged to `out/costs.jsonl` with an estimated cost; refuses Contributor-mode models |
 | SAM 3.1 client | `resonance/sam_client.py` | Image and video segmentation over the Responses API, decoded with `meta_sam_parser` |
 | Analysis pipeline and CLI | `resonance/pipeline.py`, `resonance/cli.py`, `resonance/report.py` | `resonance analyze` and `resonance demo`, side-by-side video, spectrum plot, `report.json` |
+| Diagnosis | `resonance/diagnose.py`, `resonance/audio.py` | Muse Spark 1.3 strict-schema fault report from measurements, video, spectrum, key frame and manual; Muse Spark 1.2 listens to the soundtrack; manual citations verified against the PDF |
+| Fix visualization | `resonance/visualize.py` | Muse Image edits of the real key frame: where to act, and the fixed state |
+| Rescan after fix | `resonance/compare.py` | Before/after amplitude at the fault frequency and harmonics, verdict, Muse Spark check against the diagnosis's prediction |
+| Web app | `resonance/server.py`, `resonance/web/index.html` | Upload, live progress, all results, rescan comparison |
 | API probes | `scripts/probe_*.py` | Print raw API responses to verify schemas before relying on them |
-| Tests | `tests/` | 38 tests, all offline |
+| Tests | `tests/` | 48 tests, all offline |
 
 ## Setup
 
@@ -51,6 +60,16 @@ uv run resonance analyze samples/fan.mov --prompt "motor housing" --accel sample
 
 # No API: give the region yourself
 uv run resonance analyze samples/fan.mov --box 400,300,900,700
+
+# Diagnose (Muse Spark), then show the fix on the real frame (Muse Image)
+uv run resonance diagnose out/<run> --manual samples/fan_manual.pdf --machine "desk fan"
+uv run resonance visualize out/<run>
+
+# After the repair, film again from the same spot and compare
+uv run resonance compare out/<before-run> out/<after-run>
+
+# Or do everything in the browser
+uv run resonance serve        # http://127.0.0.1:8000
 ```
 
 Each run writes `out/<run>/`:
@@ -62,6 +81,9 @@ Each run writes `out/<run>/`:
 | `report.json` | fps, dominant Hz, harmonics, accelerometer match and % error, warnings, API cost |
 | `mask_overlay.png`, `mask.png` | The segmented part |
 | `signals.npz` | Raw displacement signals and timestamps |
+| `diagnosis.json`, `diagnosis.md`, `action_point.png` | Muse Spark diagnosis (after `diagnose`) |
+| `where_to_act.png`, `fixed_state.png`, `now_vs_fixed.png` | Muse Image edits (after `visualize`) |
+| `compare.json`, `compare.png` | Rescan comparison (after `compare`, in the after-run folder) |
 
 Run `uv run resonance analyze --help` for all options (`--capture-fps` for re-timed slow-mo,
 `--start`/`--duration`, `--alpha`, `--fmin`/`--fmax`, `--select`).
@@ -85,6 +107,7 @@ uv run python scripts/probe_models.py                                      # fre
 uv run python scripts/probe_sam_image.py samples/fan.mov --prompt "motor housing"   # $0.0025
 uv run python scripts/probe_sam_video.py samples/fan.mov --prompt "fan blade"       # ~$0.05
 uv run python scripts/probe_image_gen.py "a desk fan on a table" --out samples/fan.png  # $0.01
+uv run python scripts/probe_spark_video.py out/<run>/side_by_side.mp4 out/<run>/spectrum.png  # ~$0.01
 ```
 
 ## Third-party credits and licenses
@@ -99,6 +122,10 @@ uv run python scripts/probe_image_gen.py "a desk fan on a table" --out samples/f
 | Typer | CLI | MIT |
 | OpenAI Python SDK | HTTP client for the OpenAI-compatible Meta Model API | Apache-2.0 |
 | python-dotenv | Loads `.env` | BSD-3-Clause |
+| pypdf | Reads manual text to verify citations | BSD-3-Clause |
+| FastAPI, Starlette | Web API | MIT, BSD-3-Clause |
+| Uvicorn | Web server | BSD-3-Clause |
+| python-multipart | Upload parsing | Apache-2.0 |
 | FFmpeg | Video probing and decoding (external binary, not distributed) | LGPL/GPL |
 
 Methods implemented from the literature (our own code, no reference implementations used):
