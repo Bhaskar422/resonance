@@ -106,6 +106,27 @@ def diagnose(
 
 
 @app.command()
+def compare(
+    before: Path = typer.Argument(..., exists=True, file_okay=False, help="Run before the fix, e.g. out/<run>"),
+    after: Path = typer.Argument(..., exists=True, file_okay=False, help="Run after the fix, same camera position"),
+    no_spark: bool = typer.Option(False, "--no-spark", help="Skip the Muse Spark verdict"),
+):
+    """Rescan after a fix: compare vibration before and after, and judge the repair."""
+    from resonance.compare import compare_runs
+
+    r = compare_runs(before, after, ask_spark=not no_spark)
+    f = r["fundamental"]
+    typer.secho(f"\n  {r['verdict'].replace('_', ' ').upper()}: {r['fault_frequency_hz']:.2f} Hz went {f['before_px']:.3f} -> {f['after_px']:.3f} px ({f['change_pct']:+.0f} %, {f['change_db']:+.1f} dB)", bold=True)
+    for h in r["harmonics"][1:]:
+        typer.echo(f"  {h['order']}x {h['freq_hz']:.2f} Hz: {h['change_pct']:+.0f} %")
+    if r["spark"]:
+        typer.echo(f"  Muse Spark: {r['spark']['verdict'].replace('_', ' ')} (matches prediction: {r['spark']['matches_prediction']}). {r['spark']['explanation']}")
+    for w in r["warnings"]:
+        typer.secho(f"  ! {w}", fg=typer.colors.YELLOW)
+    typer.echo(f"  -> {after}/compare.png, compare.json")
+
+
+@app.command()
 def demo(
     out: Path = typer.Option(Path("out"), help="Output root"),
     hz: float = typer.Option(17.0, help="Vibration frequency of the synthetic part"),
