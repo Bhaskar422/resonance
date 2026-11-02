@@ -157,6 +157,7 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
     mask, mask_meta = _get_mask(opts, key, run_dir, ledger)
     if mask.sum() < 64:
         raise ValueError("mask is too small to measure motion")
+    cv2.imwrite(str(run_dir / "key_frame.png"), key)  # clean frame, for image editing
     report.save_mask_overlay(run_dir / "mask_overlay.png", key, mask)
     cv2.imwrite(str(run_dir / "mask.png"), mask.astype(np.uint8) * 255)
     timer.lap("mask")
@@ -236,6 +237,9 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
         "resonance_version": __version__,
         "run": run_name,
         "input": str(video),
+        "start_s": opts.start_s,
+        "duration_s": opts.duration_s,
+        "api_cost_ledger": str(opts.out_root / "costs.jsonl"),
         "video": prep.to_dict(),
         "analysis_fs": round(fs, 3),
         "mask": {

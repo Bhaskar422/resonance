@@ -13,6 +13,7 @@ dependencies = [
     "numpy>=2.4.6",
     "openai>=3.39.0",
     "opencv-python>=5.0.0.93",
+    "pypdf>=6.21.4",
     "python-dotenv>=1.2.4",
     "scipy>=1.17.1",
     "typer>=0.27.3",

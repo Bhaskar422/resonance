@@ -58,6 +58,9 @@ def analyze(
     fmax: Optional[float] = typer.Option(None, help="Ignore frequencies above this (Hz)"),
     playback_fps: float = typer.Option(30.0, help="Playback fps of the output video (slow motion)"),
     no_cache: bool = typer.Option(False, "--no-cache", help="Always call SAM, even for a frame seen before"),
+    run_diagnosis: bool = typer.Option(False, "--diagnose", help="Then diagnose with Muse Spark"),
+    manual: Optional[Path] = typer.Option(None, exists=True, dir_okay=False, help="Equipment manual PDF for the diagnosis"),
+    machine: Optional[str] = typer.Option(None, help='What the machine is, e.g. "desk fan"'),
 ):
     """Segment a part, measure its vibration, magnify it, and compare with an accelerometer."""
     from resonance.pipeline import AnalyzeOptions, analyze as run
@@ -67,7 +70,39 @@ def analyze(
         max_height=max_height, key_frame=key_frame, select=select, mask_path=mask, box=_parse_box(box), alpha=alpha,
         fmin=fmin, fmax=fmax, playback_fps=playback_fps, use_cache=not no_cache,
     )
-    _summary(run(video, opts))
+    result = run(video, opts)
+    _summary(result)
+    if run_diagnosis:
+        _diagnose(Path(result["outputs"]["video"]).parent, manual, machine, "high", True)
+
+
+def _diagnose(run_dir: Path, manual: Optional[Path], machine: Optional[str], effort: str, use_audio: bool) -> None:
+    from resonance.diagnose import diagnose as run_dx
+
+    typer.echo("\n  Diagnosing with Muse Spark ...")
+    r = run_dx(run_dir, manual=manual, machine_hint=machine, effort=effort, use_audio=use_audio)
+    dx = r["diagnosis"]
+    typer.secho(f"\n  {dx['primary_fault'].replace('_', ' ').upper()}  severity {dx['severity']}  confidence {dx['confidence']:.0%}", bold=True)
+    typer.echo(f"  {dx['summary']}")
+    for i, a in enumerate(dx["recommended_actions"], 1):
+        typer.echo(f"  {i}. {a['step']}")
+    cites = dx.get("manual_citations") or []
+    if cites:
+        ok = sum(1 for c in cites if c.get("verified"))
+        typer.echo(f"  Manual citations: {ok}/{len(cites)} verified against the PDF")
+    typer.echo(f"  Cost: ${r['api_cost_usd']:.4f}   ->  {run_dir}/diagnosis.md, action_point.png")
+
+
+@app.command()
+def diagnose(
+    run_dir: Path = typer.Argument(..., exists=True, file_okay=False, help="An analysis run, e.g. out/<run>"),
+    manual: Optional[Path] = typer.Option(None, exists=True, dir_okay=False, help="Equipment manual PDF"),
+    machine: Optional[str] = typer.Option(None, help='What the machine is, e.g. "desk fan"'),
+    effort: str = typer.Option("high", help="Muse Spark reasoning effort: minimal, low, medium, high, xhigh, max"),
+    no_audio: bool = typer.Option(False, "--no-audio", help="Skip the soundtrack"),
+):
+    """Diagnose an analysed run with Muse Spark: fault, evidence, actions, manual citations."""
+    _diagnose(run_dir, manual, machine, effort, not no_audio)
 
 
 @app.command()
