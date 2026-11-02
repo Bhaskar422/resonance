@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -48,17 +49,21 @@ class AnalyzeOptions:
     playback_fps: float = 30.0
     use_cache: bool = True
     chunk: int = 64
+    on_stage: Callable[[str], None] | None = None  # progress callback, e.g. for the web app
 
 
 @dataclass
 class _Timer:
     marks: dict = field(default_factory=dict)
     t0: float = field(default_factory=time.time)
+    on_stage: Callable[[str], None] | None = None
 
     def lap(self, name: str) -> None:
         now = time.time()
         self.marks[name] = round(now - self.t0, 2)
         self.t0 = now
+        if self.on_stage:
+            self.on_stage(name)
 
 
 def _bbox(mask: np.ndarray, margin: int) -> tuple[slice, slice]:
@@ -143,7 +148,7 @@ def _uniform(prep: rio.PreparedVideo, d: np.ndarray) -> tuple[np.ndarray, float]
 
 
 def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
-    timer = _Timer()
+    timer = _Timer(on_stage=opts.on_stage)
     video = Path(video)
     run_name = opts.run_name or f"{time.strftime('%Y%m%d-%H%M%S')}_{video.stem}"
     run_dir = opts.out_root / run_name

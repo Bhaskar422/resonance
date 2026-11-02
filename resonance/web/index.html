@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resonance</title>
+<style>
+:root {
+  --bg: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --line: #e1e0d9; --accent: #2a78d6; --accent-ink: #ffffff;
+  --good: #0ca30c; --warn: #b07800; --serious: #c4510f; --critical: #c42b2b;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --line: #2c2c2a; --accent: #3987e5; --good: #0ca30c; --warn: #fab219; --serious: #f07a3a; --critical: #e66767;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+header { padding: 18px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+header p { margin: 0; color: var(--ink-2); }
+main { display: grid; grid-template-columns: 320px 1fr; gap: 24px; padding: 24px; max-width: 1500px; margin: 0 auto; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+.card + .card { margin-top: 16px; }
+h2 { font-size: 15px; margin: 0 0 12px; }
+h3 { font-size: 14px; margin: 18px 0 8px; color: var(--ink-2); font-weight: 600; }
+label { display: block; font-size: 13px; color: var(--ink-2); margin: 10px 0 4px; }
+input[type=text], input[type=number], select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; }
+input[type=file] { width: 100%; font-size: 13px; color: var(--ink-2); }
+.row { display: flex; gap: 12px; align-items: center; }
+.check { display: flex; gap: 6px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--ink-2); }
+button { margin-top: 14px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font: 600 14px system-ui, sans-serif; cursor: pointer; }
+button:disabled { opacity: .5; cursor: progress; }
+button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); width: auto; padding: 8px 14px; margin: 0; }
+.runs { list-style: none; margin: 0; padding: 0; max-height: 52vh; overflow: auto; }
+.runs li { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; }
+.runs li:hover, .runs li.active { background: var(--bg); }
+.runs img { width: 64px; height: 36px; object-fit: cover; border-radius: 4px; flex: none; }
+.runs .t { font-size: 13px; line-height: 1.3; min-width: 0; }
+.runs .t b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.runs .t span { color: var(--muted); }
+.stages { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.stage { font-size: 12px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.stage.done { color: var(--ink-2); border-color: var(--ink-2); }
+.stage.now { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.err { color: var(--critical); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+.empty { color: var(--muted); padding: 60px 0; text-align: center; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.tile .k { font-size: 12px; color: var(--muted); }
+.tile .v { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
+.tile .s { font-size: 12px; color: var(--ink-2); }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; }
+.badge::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.sev-normal { color: var(--good); } .sev-monitor { color: var(--warn); } .sev-act_soon { color: var(--serious); } .sev-stop_now { color: var(--critical); }
+video, .media img { width: 100%; border-radius: 8px; display: block; background: #000; }
+.media img { background: var(--bg); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+.cap { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.summary { font-size: 16px; margin: 0 0 6px; }
+details { border-top: 1px solid var(--line); padding: 8px 0; }
+summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+summary .lk { color: var(--muted); font-weight: 400; }
+ul.ev { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); }
+ul.ev .src { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-right: 4px; }
+ul.ev .against { color: var(--serious); }
+ol.actions { padding-left: 20px; margin: 0; }
+ol.actions li { margin-bottom: 6px; }
+ol.actions .where { color: var(--muted); font-size: 13px; }
+.cite { font-size: 13px; padding: 8px 10px; border-left: 3px solid var(--line); margin: 6px 0; color: var(--ink-2); }
+.cite.ok { border-color: var(--good); } .cite.bad { border-color: var(--critical); }
+.cite .tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.cite.ok .tag { color: var(--good); } .cite.bad .tag { color: var(--critical); }
+.warn { font-size: 13px; color: var(--serious); margin: 4px 0; }
+.verdict { font-size: 18px; font-weight: 650; margin: 10px 0 4px; }
+.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Resonance</h1>
+  <p>Film a machine in slow motion. See its vibration, measure it, find the fault, and check the fix.</p>
+</header>
+<main>
+  <aside>
+    <form class="card" id="form">
+      <h2>New analysis</h2>
+      <label for="video">Slow-motion clip (240 fps)</label>
+      <input type="file" id="video" name="video" accept="video/*" required>
+      <label for="prompt">Part to analyse (SAM 3.1 prompt)</label>
+      <input type="text" id="prompt" name="prompt" value="fan" placeholder="fan, pump, motor">
+      <label for="machine">Machine</label>
+      <input type="text" id="machine" name="machine" placeholder="desk fan">
+      <label for="manual">Equipment manual (PDF, optional)</label>
+      <input type="file" id="manual" name="manual" accept="application/pdf">
+      <label for="accel">phyphox export (CSV or zip, optional)</label>
+      <input type="file" id="accel" name="accel" accept=".csv,.zip">
+      <div class="row">
+        <div style="flex:1"><label for="capture_fps">Recorded at (fps)</label><input type="number" id="capture_fps" name="capture_fps" placeholder="auto"></div>
+        <div style="flex:1"><label for="duration">Seconds</label><input type="number" id="duration" name="duration" value="10"></div>
+      </div>
+      <label class="check"><input type="checkbox" name="diagnose" checked> Diagnose with Muse Spark</label>
+      <label class="check"><input type="checkbox" name="visualize" checked> Show the fix with Muse Image</label>
+      <button id="go">Analyse</button>
+      <div class="stages" id="stages"></div>
+      <div class="err" id="err"></div>
+    </form>
+    <div class="card">
+      <h2>Runs</h2>
+      <ul class="runs" id="runs"></ul>
+    </div>
+  </aside>
+  <section id="detail"><div class="empty">Upload a clip, or pick a run.</div></section>
+</main>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const pretty = s => String(s ?? "").replaceAll("_", " ");
+let runs = [], current = null;
+
+async function loadRuns(select) {
+  runs = await (await fetch("/api/runs")).json();
+  $("#runs").innerHTML = runs.map(r => `
+    <li data-run="${esc(r.run)}" class="${r.run === current ? "active" : ""}">
+      <img src="${esc(r.thumb)}" alt="">
+      <div class="t"><b>${esc(r.input)}</b>
+      <span>${r.freq_hz.toFixed(2)} Hz${r.fault ? " · " + esc(pretty(r.fault)) : ""}</span></div>
+    </li>`).join("") || `<li class="muted">No runs yet.</li>`;
+  document.querySelectorAll("#runs li[data-run]").forEach(li => li.onclick = () => show(li.dataset.run));
+  if (select) show(select);
+}
+
+function tile(k, v, s = "") { return `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`; }
+
+async function show(run) {
+  current = run;
+  history.replaceState(null, "", "#" + encodeURIComponent(run));
+  document.querySelectorAll("#runs li").forEach(li => li.classList.toggle("active", li.dataset.run === run));
+  const d = await (await fetch(`/api/runs/${encodeURIComponent(run)}`)).json();
+  const r = d.report, f = d.files, v = r.vibration, dxw = d.diagnosis, dx = dxw?.diagnosis;
+  const harm = v.harmonics.filter(h => h.present).map(h => h.order + "×").join(" ");
+  const acc = r.accelerometer;
+  const cost = (r.api_cost_usd.this_run || 0) + (dxw?.api_cost_usd || 0) + (d.visualize?.api_cost_usd || 0);
+  let html = `<div class="tiles">
+    ${tile("Vibration", v.dominant.freq_hz.toFixed(2) + " Hz", `${v.dominant_cpm.toFixed(0)} cpm · harmonics ${harm || "none"}`)}
+    ${dx ? tile("Fault", pretty(dx.primary_fault), `<span class="badge sev-${esc(dx.severity)}">${esc(pretty(dx.severity))}</span>`) : ""}
+    ${dx ? tile("Confidence", Math.round(dx.confidence * 100) + "%", esc(dx.rotation.relation)) : ""}
+    ${acc ? tile("Accelerometer", acc.verifiable ? acc.percent_error.toFixed(2) + "% error" : "not verifiable", esc(acc.note)) : ""}
+    ${tile("Video", r.video.fps.toFixed(0) + " fps", `${r.video.frames} frames · Nyquist ${r.video.nyquist_hz.toFixed(0)} Hz`)}
+    ${tile("API cost", "$" + cost.toFixed(3), "SAM 3.1 · Muse Spark · Muse Image")}
+  </div>`;
+  for (const w of r.warnings || []) html += `<div class="warn">⚠ ${esc(w)}</div>`;
+  html += `<div class="card media"><video src="${f["side_by_side.mp4"]}" controls loop muted playsinline autoplay></video>
+    <div class="cap">Original (left) and motion-magnified ×${r.magnification.alpha} in ${r.magnification.band_hz.map(x => x.toFixed(1)).join("–")} Hz (right), inside the SAM 3.1 mask, played ${(r.video.fps / 30).toFixed(0)}× slower.</div></div>`;
+  html += `<div class="grid2" style="margin-top:16px">
+    <div class="card media"><img src="${f["spectrum.png"]}" alt="Vibration spectrum"><div class="cap">Spectrum measured from pixels${acc ? ", with accelerometer ground truth" : ""}.</div></div>
+    <div class="card media"><img src="${f["where_to_act.png"] || f["action_point.png"] || f["mask_overlay.png"]}" alt="Where to act">
+      <div class="cap">${f["where_to_act.png"] ? "Where to act: Muse Image edit of the real frame, at the spot Muse Spark chose." : "Segmented part (SAM 3.1)."}</div></div>
+  </div>`;
+  if (dx) {
+    html += `<div class="card" style="margin-top:16px"><h2>Diagnosis · ${esc(dx.machine)}</h2><p class="summary">${esc(dx.summary)}</p>`;
+    html += `<h3>Candidate faults</h3>` + dx.faults.map((x, i) => `<details ${i === 0 ? "open" : ""}>
+      <summary>${esc(pretty(x.fault_type))} <span class="lk">${Math.round(x.likelihood * 100)}% · ${esc(x.harmonic_relation)}</span></summary>
+      <ul class="ev">${x.supporting_evidence.map(e => `<li><span class="src">${esc(pretty(e.source))}</span>${esc(e.detail)}</li>`).join("")}
+      ${x.contradicting_evidence.map(c => `<li class="against"><span class="src">against</span>${esc(c)}</li>`).join("")}</ul></details>`).join("");
+    html += `<h3>What to do</h3><ol class="actions">${dx.recommended_actions.map(a => `<li>${esc(a.step)}<div class="where">${esc(a.where)}${a.manual_page ? ` · manual p. ${a.manual_page}` : ""}</div></li>`).join("")}</ol>`;
+    if (dx.manual_citations.length) {
+      html += `<h3>Manual citations, checked against the PDF</h3>` + dx.manual_citations.map(c => `<div class="cite ${c.verified ? "ok" : "bad"}">
+        <span class="tag">${c.verified ? "✓ verified" : "✗ not found in PDF"}</span> · p. ${c.found_on_page || c.page}<br>“${esc(c.quote)}”<br><span class="muted">${esc(c.relevance)}</span></div>`).join("");
+    }
+    if (dx.uncertainties.length) html += `<h3>Uncertainties</h3><ul class="ev">${dx.uncertainties.map(u => `<li>${esc(u)}</li>`).join("")}</ul>`;
+    html += `<h3>After the fix</h3><p>${esc(dx.fixed_state_description)}</p><p class="muted">Rescan should show: ${esc(dx.rescan_expectation)}</p></div>`;
+  }
+  if (f["now_vs_fixed.png"]) html += `<div class="card media" style="margin-top:16px"><img src="${f["now_vs_fixed.png"]}" alt="Now and after the fix"><div class="cap">The real frame now, and edited by Muse Image to show the fixed state.</div></div>`;
+  const others = runs.filter(x => x.run !== run);
+  html += `<div class="card" style="margin-top:16px"><h2>Rescan after fix</h2>
+    <div class="row"><select id="before">${others.map(x => `<option value="${esc(x.run)}">${esc(x.input)} · ${x.freq_hz.toFixed(2)} Hz${x.fault ? " · " + esc(pretty(x.fault)) : ""}</option>`).join("")}</select>
+    <button class="secondary" id="cmp">Compare as before → this run</button></div><div id="cmpout">${d.compare ? renderCompare(d.compare, f["compare.png"]) : ""}</div></div>`;
+  $("#detail").innerHTML = html;
+  const btn = $("#cmp");
+  if (btn) btn.onclick = async () => {
+    btn.disabled = true; btn.textContent = "Comparing…";
+    const res = await fetch("/api/compare", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({before: $("#before").value, after: run})});
+    const j = await res.json();
+    $("#cmpout").innerHTML = res.ok ? renderCompare(j.result, j.plot + "?t=" + Date.now()) : `<div class="err">${esc(j.detail)}</div>`;
+    btn.disabled = false; btn.textContent = "Compare as before → this run";
+  };
+}
+
+function renderCompare(c, plot) {
+  const f = c.fundamental;
+  let h = `<div class="verdict">${esc(pretty(c.verdict))}: ${c.fault_frequency_hz.toFixed(2)} Hz ${f.change_pct > 0 ? "+" : ""}${f.change_pct.toFixed(0)}% (${f.change_db > 0 ? "+" : ""}${f.change_db.toFixed(1)} dB)</div>
+    <div class="muted">${f.before_px.toFixed(3)} → ${f.after_px.toFixed(3)} px at 1× · RMS displacement ${c.rms_displacement.change_pct.toFixed(0)}%</div>`;
+  if (c.spark) h += `<p><b>Muse Spark:</b> ${esc(pretty(c.spark.verdict))}${c.spark.matches_prediction ? ", as the diagnosis predicted" : ", not what the diagnosis predicted"}. ${esc(c.spark.explanation)} <span class="muted">${esc(c.spark.next_step)}</span></p>`;
+  for (const w of c.warnings || []) h += `<div class="warn">⚠ ${esc(w)}</div>`;
+  if (plot) h += `<div class="media" style="margin-top:10px"><img src="${plot}" alt="Before and after spectra"></div>`;
+  return h;
+}
+
+$("#form").onsubmit = async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  fd.set("diagnose", e.target.diagnose.checked); fd.set("visualize", e.target.visualize.checked);
+  for (const k of ["capture_fps", "duration"]) if (!fd.get(k)) fd.delete(k);
+  for (const k of ["manual", "accel"]) if (!fd.get(k)?.name) fd.delete(k);
+  $("#go").disabled = true; $("#err").textContent = "";
+  const res = await fetch("/api/analyze", {method: "POST", body: fd});
+  if (!res.ok) { $("#err").textContent = "Upload failed: " + res.status; $("#go").disabled = false; return; }
+  const {job} = await res.json();
+  const poll = async () => {
+    const j = await (await fetch(`/api/jobs/${job}`)).json();
+    const at = j.stages.indexOf(j.stage);
+    $("#stages").innerHTML = j.stages.slice(1).map((s, i) => `<span class="stage ${i + 1 < at || j.status === "done" ? "done" : i + 1 === at ? "now" : ""}">${s}</span>`).join("");
+    if (j.status === "error") { $("#err").textContent = j.error; $("#go").disabled = false; return; }
+    if (j.status === "done") { $("#go").disabled = false; loadRuns(j.run); return; }
+    setTimeout(poll, 1000);
+  };
+  poll();
+};
+loadRuns(location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : null);
+</script>
+</body>
+</html>

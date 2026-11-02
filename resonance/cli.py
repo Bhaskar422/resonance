@@ -106,6 +106,18 @@ def diagnose(
 
 
 @app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", help="Interface to bind"),
+    port: int = typer.Option(8000, help="Port"),
+):
+    """Run the web app: upload a clip and see every result in the browser."""
+    import uvicorn
+
+    typer.echo(f"  Resonance at http://{host}:{port}")
+    uvicorn.run("resonance.server:app", host=host, port=port, log_level="warning")
+
+
+@app.command()
 def visualize(
     run_dir: Path = typer.Argument(..., exists=True, file_okay=False, help="A diagnosed run, e.g. out/<run>"),
 ):
