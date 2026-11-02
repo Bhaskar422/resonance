@@ -67,3 +67,11 @@ def test_diagnosis_schema_is_strict_compatible():
 
     walk(diagnose.DIAGNOSIS_SCHEMA)
     walk(diagnose.AUDIO_SCHEMA)
+
+
+def test_action_labels_are_shortened_at_word_boundaries():
+    from resonance.visualize import short_label
+
+    assert short_label("fan hub / blade assembly - inspect and balance") == "fan hub / blade assembly"
+    assert short_label("the left rear mounting bolt of the motor bracket near the base") == "the left rear mounting bolt of"
+    assert short_label("blade 2") == "blade 2"

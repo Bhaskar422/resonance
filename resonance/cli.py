@@ -106,6 +106,17 @@ def diagnose(
 
 
 @app.command()
+def visualize(
+    run_dir: Path = typer.Argument(..., exists=True, file_okay=False, help="A diagnosed run, e.g. out/<run>"),
+):
+    """Edit the real key frame with Muse Image: where to act, and the fixed state."""
+    from resonance.visualize import render_fix
+
+    r = render_fix(run_dir)
+    typer.echo(f"  where to act: {r['where_to_act']}\n  fixed state:  {r['fixed_state']}\n  side by side: {r['now_vs_fixed']}\n  cost: ${r['api_cost_usd']:.4f}")
+
+
+@app.command()
 def compare(
     before: Path = typer.Argument(..., exists=True, file_okay=False, help="Run before the fix, e.g. out/<run>"),
     after: Path = typer.Argument(..., exists=True, file_okay=False, help="Run after the fix, same camera position"),
