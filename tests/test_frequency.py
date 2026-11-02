@@ -118,3 +118,13 @@ def test_tiny_or_off_frequency_lines_are_not_called_harmonics():
     )
     harm = fq.harmonics(fq.amplitude_spectrum(x, fs), 17.0)
     assert [h.order for h in harm if h.present] == [1, 2]
+
+
+def test_window_sidelobes_are_not_listed_as_peaks():
+    fs = 240.0
+    t = np.arange(int(2 * fs)) / fs  # 2 s: sidelobes ~1.25 Hz either side of 19 Hz
+    x = 0.5 * np.sin(2 * np.pi * 19.0 * t) + 0.15 * np.sin(2 * np.pi * 38.0 * t)
+    x += 1e-4 * np.random.default_rng(6).standard_normal(t.size)
+    freqs = [p.freq_hz for p in fq.top_peaks(fq.amplitude_spectrum(x, fs))]
+    assert freqs[:2] == pytest.approx([19.0, 38.0], abs=0.05)
+    assert not any(15.0 < f < 18.5 or 19.5 < f < 23.0 for f in freqs)

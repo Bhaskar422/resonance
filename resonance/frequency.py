@@ -247,8 +247,19 @@ def top_peaks(spec: Spectrum, n: int = 5, fmin: float = 2.0, fmax: float | None 
     distance = max(1, int(round(0.5 / spec.resolution_hz)))
     idx, _ = sps.find_peaks(spec.amplitude[band], distance=distance)
     peaks = [_refine(spec, band[i], floor) for i in idx]
-    peaks = [p for p in peaks if p.snr >= min_snr]
-    return sorted(peaks, key=lambda p: p.amplitude, reverse=True)[:n]
+    peaks = sorted((p for p in peaks if p.snr >= min_snr), key=lambda p: p.amplitude, reverse=True)
+    # The Hann window's sidelobes flank every strong line (-31 dB at 2.5 true bins, falling
+    # off beyond); they are not separate vibrations. Close to a stronger peak (within 8 true
+    # bins), a peak must reach 3 % of it; nothing under 1 % of the dominant peak is listed.
+    true_bin = 1.0 / spec.duration_s if spec.duration_s else spec.resolution_hz
+    kept: list[Peak] = []
+    for p in peaks:
+        if kept and p.amplitude < 0.01 * kept[0].amplitude:
+            break
+        near = [k for k in kept if abs(p.freq_hz - k.freq_hz) < 8 * true_bin]
+        if all(p.amplitude >= 0.03 * k.amplitude for k in near) and all(abs(p.freq_hz - k.freq_hz) >= 3.5 * true_bin for k in near):
+            kept.append(p)
+    return kept[:n]
 
 
 def peak_near(spec: Spectrum, freq_hz: float, tol_hz: float) -> Peak | None:
