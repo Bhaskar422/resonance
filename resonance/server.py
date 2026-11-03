@@ -308,6 +308,47 @@ class CompareRequest(BaseModel):
     spark: bool = True
 
 
+def _diagnose_work(job: Job, run_dir: Path, manual: Path | None, machine: str | None, visualize: bool) -> None:
+    from resonance.diagnose import diagnose
+    from resonance.visualize import render_fix
+
+    _set(job, status="running", stage="diagnose")
+    try:
+        report = json.loads((run_dir / "report.json").read_text())
+        diagnose(run_dir, manual=manual, machine_hint=machine or report.get("machine"))
+        _finish_stage(job, "diagnose", "visualize" if visualize else "done")
+        if visualize:
+            render_fix(run_dir)
+            _finish_stage(job, "visualize", "done")
+        _set(job, status="done", stage="done", finished=time.time())
+    except Exception as e:  # report any failure to the page instead of dying silently
+        traceback.print_exc()
+        _set(job, status="error", error=f"{type(e).__name__}: {e}"[:600], finished=time.time())
+
+
+@app.post("/api/runs/{run}/diagnose")
+async def diagnose_run(
+    run: str,
+    machine: str = Form(""),
+    visualize: bool = Form(True),
+    manual: UploadFile | None = File(None),
+) -> dict:
+    """Diagnose an already-measured run (Muse Spark), then optionally show the fix (Muse Image)."""
+    run_dir = _run_dir(run)
+    job = Job(id=uuid.uuid4().hex[:12], run=run, stage="diagnose", done=[])
+    manual_path = None
+    if manual is not None and manual.filename:
+        up = OUT / "uploads" / job.id
+        up.mkdir(parents=True, exist_ok=True)
+        manual_path = up / _safe_name(manual.filename)
+        with manual_path.open("wb") as dst:
+            shutil.copyfileobj(manual.file, dst)
+    with _lock:
+        _jobs[job.id] = job
+    _pool.submit(_diagnose_work, job, run_dir, manual_path, machine.strip() or None, visualize)
+    return {"job": job.id}
+
+
 @app.post("/api/compare")
 def compare(req: CompareRequest) -> dict:
     from resonance.compare import compare_runs

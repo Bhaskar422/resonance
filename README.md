@@ -39,7 +39,7 @@ All code in this repository was written during the hackathon. The git history is
 | Web API | `resonance/server.py` | Upload, background jobs with per-stage progress, runs, files, rescan comparison, cost ledger |
 | Web app | `frontend/` (built into `resonance/web/dist/`), `scripts/export_sample.py` | React + Tailwind: marketing site, dashboard, machines, guided analysis, run report, certificate of fix, recording guide, usage & cost, settings |
 | API probes | `scripts/probe_*.py` | Print raw API responses to verify schemas before relying on them |
-| Tests | `tests/` | 50 tests, all offline |
+| Tests | `tests/` | 55 tests, all offline |
 
 ## Setup
 

@@ -1,4 +1,4 @@
-import { AutoGrid, EvidenceChip, TileGrid } from '../../components/ui.jsx';
+import { AutoGrid, EvidenceChip, Switch, TileGrid } from '../../components/ui.jsx';
 
 // Run report (hero screen). Ported from the `RUN REPORT` section of the Instrument prototype.
 // Everything dynamic comes from v.rep (reportVM in lib/core.js).
@@ -307,13 +307,52 @@ function CrossChecks({ r }) {
   );
 }
 
-function NoDiagnosis() {
+function NoDiagnosis({ dx }) {
   return (
     <div className="flex flex-col items-center gap-2.5 px-6 py-11 border border-dashed border-line-2 rounded-[4px] text-center">
       <div className="font-mono text-[11px] font-medium leading-none tracking-[.14em] text-fg-3">NO DIAGNOSIS</div>
       <h2 className="m-0 text-[19px] font-semibold">This run was measured but not diagnosed</h2>
-      <p className="m-0 text-fg-2 max-w-[460px]">The spectrum and harmonics above are complete. Run again with Diagnose on to get a ranked fault list, evidence and repair steps (about $0.02).</p>
-      <a href="#/analyze" className={PRIMARY}>Analyze with diagnosis</a>
+      <p className="m-0 text-fg-2 max-w-[520px]">The spectrum and harmonics above are complete. Diagnose this run to get a ranked fault list with evidence, repair steps and, optionally, the fix drawn on your frame. The measurement is reused; nothing is uploaded again.</p>
+
+      {dx.running ? (
+        <div role="status" aria-live="polite" className="w-full max-w-[520px] mt-2 border border-line rounded-[4px] text-left">
+          {dx.stages.map(g => (
+            <div key={g.key} className="flex items-center gap-3 px-3.5 py-[11px] border-b border-line last:border-b-0" style={{ opacity: g.st === 'pending' ? 0.5 : 1 }}>
+              <span className={`size-2.5 rounded-full shrink-0 ${g.st === 'running' ? 'animate-pulse' : ''}`} style={{ background: g.color }} />
+              <span className="flex-1 text-[13.5px]">{g.desc}</span>
+              <span className="font-mono text-[10px] font-semibold uppercase" style={{ color: g.color }}>{{ pending: 'Waiting', running: 'Running', done: 'Done', error: 'Failed' }[g.st]}</span>
+            </div>
+          ))}
+          <div className="px-3.5 py-2 font-mono text-[11px] text-fg-3 tabular">{dx.elapsed} · usually 30–90 s</div>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 mt-2">
+            <label className="flex items-center gap-2.5 text-[13px] text-fg-2">
+              <Switch sw={dx.visualize} label="Also show the fix with Muse Image" />
+              Also show the fix (Muse Image)
+            </label>
+            <span className="flex items-center gap-2 text-[13px] text-fg-2">
+              {dx.hasManual ? (
+                <>
+                  <span className="font-mono text-[11.5px] text-c4">MAN · {dx.manualName}</span>
+                  <button type="button" onClick={dx.clearManual} className="border-0 bg-transparent text-fg-3 text-[12px] underline">Remove</button>
+                </>
+              ) : (
+                <label className="relative cursor-pointer underline">
+                  Attach the manual (PDF, optional)
+                  <input type="file" accept="application/pdf,.pdf" onChange={dx.onManual} className="absolute inset-0 opacity-0 cursor-pointer" aria-label="Attach the machine's manual as a PDF" />
+                </label>
+              )}
+            </span>
+          </div>
+          {dx.hasError && <p role="alert" className="m-0 max-w-[520px] text-[13px] text-sev-stop">{dx.error}</p>}
+          <button type="button" onClick={dx.start} className={`${PRIMARY} border-0 mt-1`}>
+            {dx.hasError ? 'Try again' : 'Diagnose this run'} · {dx.cost}
+          </button>
+          {!dx.live && <p className="m-0 text-[12px] text-fg-3">Sample mode: switch to Live API in Settings to diagnose your own runs.</p>}
+        </>
+      )}
     </div>
   );
 }
@@ -508,7 +547,7 @@ export default function Report({ v }) {
             <Segmentation r={r} />
             <CrossChecks r={r} />
           </AutoGrid>
-          {r.noDiag && <NoDiagnosis />}
+          {r.noDiag && <NoDiagnosis dx={r.dx} />}
           {r.diag && (
             <div className="flex flex-col gap-4">
               <Diagnosis r={r} />

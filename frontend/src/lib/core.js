@@ -278,6 +278,7 @@ export function createApp(opts = {}) {
     runs: null, runsLoading: false, runsError: null, details: {}, detailErr: {}, detailBusy: {},
     costs: null, costsLive: false, health: null, search: '', toast: null,
     rep: { video: 'side', fault: 0, slider: 50 },
+    dx: {},  // one-click diagnosis of an existing run, by run id
     rs: { machine: null, before: null, after: null, result: null, plot: null, loading: false, error: null, spark: true },
     az: null, faq: 0, pipe: 0, menu: false,
   };
@@ -292,6 +293,7 @@ export function createApp(opts = {}) {
     async run(id) { if (!live()) { await wait(280); const d = SAMPLE.details[id]; if (!d) throw new Error(`Run “${id}” was not found.`); return d; } const d = await jf('/api/runs/' + encodeURIComponent(id)); const files = {}; for (const k in d.files || {}) files[k] = abs(d.files[k]); return normalizeDetail({ ...d, files }); },
     async analyze(fd) { return jf('/api/analyze', { method: 'POST', body: fd }); },
     async job(id) { return jf('/api/jobs/' + encodeURIComponent(id)); },
+    async diagnoseRun(id, fd) { return jf('/api/runs/' + encodeURIComponent(id) + '/diagnose', { method: 'POST', body: fd }); },
     async compare(before, after, spark) { if (!live()) { await wait(1100); return { result: sampleCompare(before, after, spark), plot: null }; } const r = await jf('/api/compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after, spark }) }); return { ...r, result: normalizeCompare(r.result), plot: abs(r.plot) }; },
     async health() { return jf('/api/health'); },
     // PENDING BACKEND: GET /api/costs — falls back to the mock ledger until it exists.
@@ -444,9 +446,53 @@ export function createApp(opts = {}) {
       video: { has: !!vid, none: !vid, url: vid || '', poster: F['key_frame.png'] || '', tabs: vtabs, w: mode === 'side' ? '100%' : '200%', x: mode === 'magnified' ? 'translateX(-50%)' : 'none', ratio: mode === 'side' ? '32 / 9' : '16 / 9' },
       motionRef: refs.motion,
       rescanHref: '#/analyze?rescan=' + encodeURIComponent(id),
+      dx: dxVM(id),
       hasCompare: !!d.compare, compareHref: d.compare ? `#/rescan?before=${encodeURIComponent(d.compare.before_run)}&after=${encodeURIComponent(d.compare.after_run)}` : '',
       share: () => { const u = location.href; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast('Share link copied'), () => toast('Copy this link: ' + u)); },
       print: () => window.print(),
+    };
+  }
+
+  /* ---- diagnose an existing run ---- */
+  const DX_STAGES = [['diagnose', 'Diagnosing the fault with Muse Spark…'], ['visualize', 'Showing the fix on your frame with Muse Image…']];
+  const dxOf = id => S.dx[id] || (S.dx[id] = { visualize: S.defaults.visualize, manual: null, manualName: '', running: false, stage: null, error: null, t0: 0, jobId: null });
+  async function diagnoseRun(id) {
+    const x = dxOf(id);
+    if (!live()) { toast('Switch to Live API in Settings to diagnose your own runs', 'error'); return; }
+    const fd = new FormData();
+    fd.append('visualize', String(x.visualize));
+    if (x.manual) fd.append('manual', x.manual);
+    Object.assign(x, { running: true, stage: 'diagnose', error: null, t0: performance.now() }); startTick(); emit();
+    try { const { job } = await api.diagnoseRun(id, fd); x.jobId = job; pollDx(id); }
+    catch (e) { Object.assign(x, { running: false, error: 'Could not start the diagnosis. ' + (e.message || '') }); emit(); }
+  }
+  function pollDx(id) {
+    const x = dxOf(id);
+    setTimeout(async () => {
+      if (!x.running) return;
+      try {
+        const j = await api.job(x.jobId);
+        x.stage = j.stage;
+        if (j.status === 'done') { x.running = false; await loadDetail(id, true); loadCosts(); toast('Diagnosis ready'); emit(); return; }
+        if (j.status === 'error') { Object.assign(x, { running: false, error: j.error || 'The diagnosis stopped.' }); emit(); return; }
+        emit(); pollDx(id);
+      } catch (e) { Object.assign(x, { running: false, error: 'Lost connection while waiting. ' + e.message }); emit(); }
+    }, CONFIG.POLL_MS);
+  }
+  function dxVM(id) {
+    const x = dxOf(id), now = performance.now();
+    const plan = DX_STAGES.filter(([k]) => k !== 'visualize' || x.visualize);
+    const at = plan.findIndex(([k]) => k === x.stage);
+    return {
+      running: x.running, error: x.error || '', hasError: !!x.error, live: live(),
+      cost: x.visualize ? '≈ $0.05' : '≈ $0.03',
+      visualize: { on: x.visualize, toggle: () => { if (!x.running) { x.visualize = !x.visualize; emit(); } }, track: x.visualize ? 'var(--accent)' : 'var(--line-2)', knob: x.visualize ? 'translateX(20px)' : 'none' },
+      manualName: x.manualName, hasManual: !!x.manualName,
+      onManual: e => { const f = e.target.files && e.target.files[0]; if (f) { x.manual = f; x.manualName = f.name; emit(); } },
+      clearManual: () => { x.manual = null; x.manualName = ''; emit(); },
+      start: () => diagnoseRun(id),
+      elapsed: x.t0 ? fx((now - x.t0) / 1000, 0) + ' s' : '',
+      stages: plan.map(([k, desc], i) => { const st = !x.running && !x.error && at < 0 ? 'pending' : i < at || (x.stage === 'done') ? 'done' : i === at ? (x.error ? 'error' : 'running') : 'pending'; return { key: k, desc, st, color: st === 'done' ? 'var(--ok)' : st === 'running' ? 'var(--accent)' : st === 'error' ? 'var(--sev-stop)' : 'var(--line-2)' }; }),
     };
   }
 
@@ -498,7 +544,7 @@ export function createApp(opts = {}) {
   }
   const planned = () => STAGES.filter(([k]) => !(k === 'accel' && !S.az.accelName) && !(k === 'diagnose' && !S.az.diagnose) && !(k === 'visualize' && !(S.az.visualize && S.az.diagnose)));
   let simToken = 0, pollT = 0, tickT = 0;
-  const startTick = () => { clearInterval(tickT); tickT = setInterval(() => { if (S.az.running) emit(); else clearInterval(tickT); }, 200); };
+  const startTick = () => { clearInterval(tickT); tickT = setInterval(() => { if (S.az.running || Object.values(S.dx).some(x => x.running)) emit(); else clearInterval(tickT); }, 200); };
   function markStage(k, state) { const now = performance.now(); if (state === 'running' && !S.az.times[k]) S.az.times[k] = { s: now }; if ((state === 'done' || state === 'error') && S.az.times[k]) S.az.times[k].e = now; S.az.st[k] = state; }
   async function simulate(fromIdx) {
     const tok = ++simToken, P = planned();

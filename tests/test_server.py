@@ -56,3 +56,18 @@ def test_cost_ledger_and_health(client, tmp_path):
     assert [r["model"] for r in rows] == ["SAM 3.1", "Muse Image"]
     assert rows[1]["run_id"] == "r1" and rows[1]["endpoint"] == "image edit" and rows[0]["run_id"] is None
     assert client.get("/api/health").json()["ok"] is True
+
+
+def test_diagnose_existing_run_runs_in_background(client, monkeypatch):
+    import resonance.diagnose
+    import resonance.visualize
+
+    calls = []
+    monkeypatch.setattr(resonance.diagnose, "diagnose", lambda run_dir, **kw: calls.append(("diagnose", run_dir.name, kw)))
+    monkeypatch.setattr(resonance.visualize, "render_fix", lambda run_dir: calls.append(("visualize", run_dir.name)))
+    job = client.post("/api/runs/r1/diagnose", data={"machine": "Desk fan", "visualize": "true"}).json()["job"]
+    server._pool.submit(lambda: None).result()  # the single worker has finished the job
+    d = client.get(f"/api/jobs/{job}").json()
+    assert d["status"] == "done" and d["run"] == "r1" and d["stages"] == ["diagnose", "visualize"]
+    assert calls[0][0] == "diagnose" and calls[0][2]["machine_hint"] == "Desk fan" and calls[1] == ("visualize", "r1")
+    assert client.post("/api/runs/nope/diagnose").status_code == 404
