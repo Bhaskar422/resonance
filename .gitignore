@@ -29,3 +29,7 @@ frontend/node_modules/
 *.dc.html
 # the built web app is committed so the Python server works without a JS toolchain
 !resonance/web/dist/
+
+# Xcode per-user state (companion app)
+xcuserdata/
+*.xcuserstate

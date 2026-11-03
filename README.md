@@ -37,9 +37,12 @@ All code in this repository was written during the hackathon. The git history is
 | Fix visualization | `resonance/visualize.py` | Muse Image edits of the real key frame: where to act, and the fixed state |
 | Rescan after fix | `resonance/compare.py` | Before/after amplitude at the fault frequency and harmonics, verdict, Muse Spark check against the diagnosis's prediction |
 | Web API | `resonance/server.py` | Upload, background jobs with per-stage progress, runs, files, rescan comparison, cost ledger |
+| Accounts | `resonance/auth.py`, `resonance/oauth.py` | Email and password (scrypt), GitHub and Google sign-in, sessions, access tokens, per-user runs, browser approval for the CLI |
+| CLI for your account | `resonance/remote.py`, `resonance/clipcheck.py` | `resonance check`, `login`, `upload`, `runs`, `pull`, `whoami`, `logout` |
+| iPhone companion app | `companion/ios/` | SwiftUI: records 240 fps slow motion with focus and exposure locked, signs in, uploads and follows the analysis |
 | Web app | `frontend/` (built into `resonance/web/dist/`), `scripts/export_sample.py` | React + Tailwind: marketing site, dashboard, machines, guided analysis, run report, certificate of fix, recording guide, usage & cost, settings |
 | API probes | `scripts/probe_*.py` | Print raw API responses to verify schemas before relying on them |
-| Tests | `tests/` | 55 tests, all offline |
+| Tests | `tests/` | 71 tests, all offline |
 
 ## Setup
 
@@ -71,7 +74,62 @@ uv run resonance compare out/<before-run> out/<after-run>
 
 # Or do everything in the browser
 uv run resonance serve        # site at http://127.0.0.1:8000, workspace at /app
+
+# Before uploading anything: is this clip good enough? (free, local)
+uv run resonance check samples/IMG_1297.MOV
 ```
+
+### Accounts
+
+The workspace and the whole API need an account. The website opens on a sign-in page; the
+first account created on a server is its admin, who sees every run and the full cost ledger.
+Everyone else sees their own runs, plus runs nobody owns (made with the CLI on the server
+machine), which appear as shared examples. The sample data is open without an account.
+
+- **Email and password** work out of the box. Passwords are hashed with scrypt; sessions and
+  access tokens are stored only as SHA-256 hashes in `out/accounts.db`.
+- **GitHub and Google** buttons appear once their app credentials are in `.env`:
+
+  ```bash
+  RESONANCE_GITHUB_CLIENT_ID=...       # github.com > Settings > Developer settings > OAuth Apps
+  RESONANCE_GITHUB_CLIENT_SECRET=...   # callback URL: <server>/api/auth/github/callback
+  RESONANCE_GOOGLE_CLIENT_ID=...       # console.cloud.google.com > Credentials > OAuth client ID (Web)
+  RESONANCE_GOOGLE_CLIENT_SECRET=...   # redirect URI: <server>/api/auth/google/callback
+  RESONANCE_PUBLIC_URL=https://...     # only when the server sits behind a proxy
+  ```
+
+  A provider sign-in joins an existing account only through a verified email address.
+- **Access tokens** for scripts: Settings > Access tokens, sent as `Authorization: Bearer rsn_...`.
+- `RESONANCE_AUTH=off` turns accounts off for a private, single-user install.
+
+### CLI with your account
+
+```bash
+uv run resonance login --server http://127.0.0.1:8000   # approve in the browser, like gh auth login
+uv run resonance upload samples/IMG_1297.MOV --prompt fan --machine "NUUK LIT v2 table fan" \
+    --accel samples/fan_before_accel.csv --manual samples/fan_manual.pdf
+uv run resonance runs                 # your runs, newest first
+uv run resonance pull <run>           # download the report, images and magnified video
+uv run resonance whoami
+uv run resonance logout
+```
+
+`upload` checks the clip first (it refuses a 30 fps copy) and prints the report link when the
+analysis is done. The token is saved in `~/.config/resonance/credentials.json`, readable only by
+you, and sent only to the server it came from. `RESONANCE_SERVER` and `RESONANCE_TOKEN` override it.
+
+### iPhone companion app
+
+`companion/ios/` is a SwiftUI app that records the clip Resonance needs and sends it to your
+account: the back camera at its highest frame rate (240 fps, 1080p), tap to lock focus and
+exposure, a 14-second recording with sound, then upload with live progress and a link to the
+report. Sign in with email and password, or approve on the website (for GitHub and Google
+accounts). Runs lists your results.
+
+1. Run the server where the phone can reach it: `uv run resonance serve --host 0.0.0.0`.
+2. Open `companion/ios/Resonance.xcodeproj` in Xcode, choose your team under Signing &
+   Capabilities, plug in the iPhone and press Run.
+3. In the app, enter the Mac's address on the same Wi-Fi, e.g. `http://192.168.1.10:8000`.
 
 ### Web app
 
