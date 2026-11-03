@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* Design tokens (Direction A "Instrument"). Dark is the default; light via data-theme. */
+:root {
+  --mono: 'IBM Plex Mono', ui-monospace, monospace; --mono-font: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --bg: #0a0d0c; --panel: #0f1312; --panel-2: #151a19; --fg: #e6ece9; --fg-2: #a6b1ad; --fg-3: #75807c; --line: #1f2624; --line-2: #303a37;
+  --accent: #5ef0a0; --on-accent: #03140a; --signal: #5ef0a0; --signal-dim: rgba(94,240,160,.26); --grid: rgba(94,240,160,.06); --ok: #5ef0a0; --focus: #7fe9ff;
+  --sev-normal: #5ee39a; --sev-monitor: #e8c95a; --sev-act: #f59b4c; --sev-stop: #ff6161;
+  --c1: #5ef0a0; --c2: #62d4f0; --c3: #e8c95a; --c4: #ff9f8a; --c5: #b8c4c0;
+  --stripe-a: rgba(255,255,255,.022); --stripe-b: rgba(255,255,255,.05);
+  --pad: 28px; --tabpad: 0px;
+}
+:root[data-theme="light"] {
+  --bg: #f1f3f0; --panel: #fbfcfa; --panel-2: #eef1ed; --fg: #0e1412; --fg-2: #45504c; --fg-3: #66716d; --line: #dce1dd; --line-2: #c3cac6;
+  --accent: #0a7a44; --on-accent: #fff; --signal: #0a8a4c; --signal-dim: rgba(10,138,76,.25); --grid: rgba(10,138,76,.07); --ok: #0a8a4c; --focus: #0060c0;
+  --sev-normal: #0f8549; --sev-monitor: #8a6800; --sev-act: #b65200; --sev-stop: #c42424;
+  --c1: #0a8a4c; --c2: #00738f; --c3: #8a6800; --c4: #b8400c; --c5: #66716d;
+  --stripe-a: rgba(0,0,0,.025); --stripe-b: rgba(0,0,0,.055);
+}
+@media (max-width: 880px) { :root { --pad: 16px; --tabpad: 84px; } }
+
+/* Tailwind utilities read the tokens: bg-panel, text-fg-2, border-line, text-signal, font-mono … */
+@theme inline {
+  --font-sans: var(--sans); --font-mono: var(--mono);
+  --color-bg: var(--bg); --color-panel: var(--panel); --color-panel-2: var(--panel-2);
+  --color-fg: var(--fg); --color-fg-2: var(--fg-2); --color-fg-3: var(--fg-3);
+  --color-line: var(--line); --color-line-2: var(--line-2);
+  --color-accent: var(--accent); --color-on-accent: var(--on-accent); --color-signal: var(--signal); --color-signal-dim: var(--signal-dim);
+  --color-ok: var(--ok); --color-focus: var(--focus);
+  --color-sev-normal: var(--sev-normal); --color-sev-monitor: var(--sev-monitor); --color-sev-act: var(--sev-act); --color-sev-stop: var(--sev-stop);
+  --color-c1: var(--c1); --color-c2: var(--c2); --color-c3: var(--c3); --color-c4: var(--c4); --color-c5: var(--c5);
+  --breakpoint-desk: 881px;
+}
+
+@layer base {
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+}
+
+@utility tabular { font-variant-numeric: tabular-nums; }
+@utility graticule {
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+@utility stripe { background: repeating-linear-gradient(135deg, var(--stripe-a) 0 9px, var(--stripe-b) 9px 18px); }
+/* Video and canvas panels stay dark in both themes. */
+@utility scope { background: #050706; --signal: #5ef0a0; --line-2: #26302d; --fg-2: #8c9894; }
+
+@media print {
+  [data-noprint] { display: none !important; }
+  :root, :root[data-theme="light"] { --bg: #fff; --panel: #fff; --panel-2: #f5f5f5; --fg: #000; --fg-2: #333; --fg-3: #555; --line: #ddd; --line-2: #bbb; --signal: #0a7a44; --accent: #0a7a44; --tabpad: 0px; }
+}

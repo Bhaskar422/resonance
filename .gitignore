@@ -21,3 +21,10 @@ dist/
 
 # OS
 .DS_Store
+
+# frontend
+frontend/node_modules/
+# design handoff from the design tool (reference only; its prototype runtime is not ours to publish)
+design_handoff_*/
+# the built web app is committed so the Python server works without a JS toolchain
+!resonance/web/dist/
