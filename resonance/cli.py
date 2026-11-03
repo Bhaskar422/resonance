@@ -60,13 +60,13 @@ def analyze(
     no_cache: bool = typer.Option(False, "--no-cache", help="Always call SAM, even for a frame seen before"),
     run_diagnosis: bool = typer.Option(False, "--diagnose", help="Then diagnose with Muse Spark"),
     manual: Optional[Path] = typer.Option(None, exists=True, dir_okay=False, help="Equipment manual PDF for the diagnosis"),
-    machine: Optional[str] = typer.Option(None, help='What the machine is, e.g. "desk fan"'),
+    machine: Optional[str] = typer.Option(None, help='What the machine is, e.g. "desk fan"; runs with the same name are grouped'),
 ):
     """Segment a part, measure its vibration, magnify it, and compare with an accelerometer."""
     from resonance.pipeline import AnalyzeOptions, analyze as run
 
     opts = AnalyzeOptions(
-        prompt=prompt, accel_path=accel_csv, out_root=out, capture_fps=capture_fps, start_s=start, duration_s=duration,
+        prompt=prompt, machine=machine, accel_path=accel_csv, out_root=out, capture_fps=capture_fps, start_s=start, duration_s=duration,
         max_height=max_height, key_frame=key_frame, select=select, mask_path=mask, box=_parse_box(box), alpha=alpha,
         fmin=fmin, fmax=fmax, playback_fps=playback_fps, use_cache=not no_cache,
     )

@@ -31,6 +31,7 @@ CROP_MARGIN = 48
 @dataclass
 class AnalyzeOptions:
     prompt: str | None = None
+    machine: str | None = None  # the user's name for the machine; groups runs of the same machine
     accel_path: Path | None = None
     out_root: Path = Path("out")
     run_name: str | None = None
@@ -241,6 +242,7 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
     result = {
         "resonance_version": __version__,
         "run": run_name,
+        "machine": opts.machine,
         "input": str(video),
         "start_s": opts.start_s,
         "duration_s": opts.duration_s,

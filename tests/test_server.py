@@ -28,6 +28,9 @@ def test_index_and_run_listing(client):
 def test_run_detail_and_files(client):
     d = client.get("/api/runs/r1").json()
     assert d["report"]["run"] == "r1" and d["diagnosis"] is None
+    spec = d["spectrum"]
+    assert len(spec["amp"]) == 600 and spec["fmax"] == pytest.approx(120.0, abs=0.5)
+    assert spec["amp"].index(max(spec["amp"])) * spec["fmax"] / 600 == pytest.approx(17.0, abs=0.5)
     assert client.get(d["files"]["side_by_side.mp4"]).status_code == 200
 
 
@@ -35,3 +38,21 @@ def test_paths_outside_the_run_are_refused(client):
     assert client.get("/files/r1/signals.npz").status_code == 404  # not in the served list
     assert client.get("/files/..%2F..%2Fetc/passwd").status_code == 404
     assert client.get("/api/runs/..").status_code == 404
+
+
+def test_job_progress_lists_finished_stages(client):
+    job = server.Job(id="j1", stage="measure", done=["upload", "prepare", "mask"])
+    server._jobs[job.id] = job
+    d = client.get("/api/jobs/j1").json()
+    assert d["stage"] == "measure" and d["stages"] == ["upload", "prepare", "mask"]
+
+
+def test_cost_ledger_and_health(client, tmp_path):
+    (tmp_path / "costs.jsonl").write_text(
+        '{"ts": "2026-10-27T11:01:13+0530", "run": "r1:visualize", "model": "muse-image-1.0", "endpoint": "responses:image_edit", "est_cost_usd": 0.01}\n'
+        '{"ts": "2026-10-27T11:02:13+0530", "run": null, "model": "sam-3.1", "endpoint": "responses:image", "est_cost_usd": 0.0025}\n'
+    )
+    rows = client.get("/api/costs").json()
+    assert [r["model"] for r in rows] == ["SAM 3.1", "Muse Image"]
+    assert rows[1]["run_id"] == "r1" and rows[1]["endpoint"] == "image edit" and rows[0]["run_id"] is None
+    assert client.get("/api/health").json()["ok"] is True
