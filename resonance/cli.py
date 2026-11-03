@@ -1,4 +1,8 @@
-"""Command line: ``resonance analyze`` and ``resonance demo``."""
+"""Command line.
+
+Local, on this machine: analyze, diagnose, visualize, compare, demo, serve, check.
+With a Resonance server and your account: login, logout, whoami, upload, runs, pull.
+"""
 
 from __future__ import annotations
 
@@ -165,6 +169,188 @@ def demo(
     write_video(src, clip.frames, clip.fps, crf=0)  # lossless: show ground truth, not codec artifacts
     typer.echo(f"synthetic clip: {src} (true vibration {hz} Hz, 0.25 px)")
     _summary(run(src, AnalyzeOptions(out_root=out, run_name="demo", mask_array=clip.target_mask)))
+
+
+# ---------------------------------------------------------------------------
+# Before you upload
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def check(
+    videos: list[Path] = typer.Argument(..., exists=True, dir_okay=False, help="One or more clips"),
+    as_json: bool = typer.Option(False, "--json", help="Print JSON instead of text"),
+):
+    """Check a clip before analysing it: frame clock, dropped frames, length (free, local)."""
+    import json
+
+    from resonance.clipcheck import check as run_check
+
+    results = [run_check(v) for v in videos]
+    if as_json:
+        typer.echo(json.dumps([r.to_dict() for r in results], indent=1))
+    for r in [] if as_json else results:
+        verdict = ("READY", typer.colors.GREEN) if r.usable else ("NOT USABLE", typer.colors.RED)
+        typer.secho(f"\n  {r.path.name}  {verdict[0]}", fg=verdict[1], bold=True)
+        typer.echo(f"  {r.width}x{r.height} {r.codec}, {r.frames} frames, measures up to {r.nyquist_hz:.0f} Hz ({r.nyquist_hz * 60:,.0f} RPM)")
+        for level, msg in r.findings:
+            mark, color = {"ok": ("  ok ", None), "warn": ("  !  ", typer.colors.YELLOW), "bad": ("  x  ", typer.colors.RED)}[level]
+            typer.secho(f"{mark} {msg}", fg=color)
+    raise typer.Exit(0 if all(r.usable for r in results) else 1)
+
+
+# ---------------------------------------------------------------------------
+# Your account on a Resonance server
+# ---------------------------------------------------------------------------
+
+SERVER = typer.Option(None, "--server", "-s", help="Server URL (default: the one you logged in to, else http://127.0.0.1:8000)")
+TOKEN = typer.Option(None, "--token", help="Access token (default: RESONANCE_TOKEN, else the saved login)")
+
+
+def _client(server: str | None, token: str | None):
+    from resonance.remote import Client
+
+    return Client(server, token)
+
+
+def _remote(fn):
+    """Run a server command, turning server errors into a short message."""
+    from resonance.remote import RemoteError
+
+    try:
+        return fn()
+    except RemoteError as e:
+        typer.secho(f"  {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1) from None
+
+
+@app.command()
+def login(
+    server: Optional[str] = SERVER,
+    token: Optional[str] = typer.Option(None, "--token", help="Save this access token (from Settings) instead of approving in the browser"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Print the link instead of opening it"),
+):
+    """Sign this computer in to your account on a Resonance server."""
+    import socket
+    import webbrowser
+
+    from resonance import remote
+
+    c = _client(server, token)
+
+    def show(code: str, url: str) -> None:
+        typer.echo(f"\n  Approve this computer in the browser:\n  {url}\n\n  Check the code matches: ", nl=False)
+        typer.secho(code, bold=True)
+        if not no_browser:
+            webbrowser.open(url)
+        typer.echo("  Waiting for approval...")
+
+    if token:
+        me = _remote(c.me)
+    else:
+        me = _remote(lambda: c.device_login(f"resonance CLI on {socket.gethostname()}", show)["user"])
+    path = remote.save(c.server, c.token, me.get("email"))
+    typer.secho(f"\n  Signed in to {c.server} as {me.get('email')}", fg=typer.colors.GREEN, bold=True)
+    typer.echo(f"  Saved to {path} (only you can read it). Revoke it any time in Settings > Access tokens.")
+
+
+@app.command()
+def logout():
+    """Forget the saved login on this computer (revoke the token itself in Settings)."""
+    from resonance import remote
+
+    typer.echo("  Signed out." if remote.forget() else "  Not signed in.")
+
+
+@app.command()
+def whoami(server: Optional[str] = SERVER, token: Optional[str] = TOKEN):
+    """Show which account and server the CLI uses."""
+    c = _client(server, token)
+    me = _remote(c.me)
+    typer.echo(f"  {me['name']} <{me['email']}>{'  (admin)' if me.get('admin') else ''} on {c.server}")
+
+
+@app.command()
+def upload(
+    video: Path = typer.Argument(..., exists=True, dir_okay=False, help="Slow-motion clip"),
+    prompt: str = typer.Option(..., "--prompt", "-p", help='Part to segment with SAM 3.1, e.g. "fan"'),
+    machine: Optional[str] = typer.Option(None, help='Machine name, e.g. "NUUK LIT v2 table fan"; runs with the same name are grouped'),
+    accel_csv: Optional[Path] = typer.Option(None, "--accel", exists=True, dir_okay=False, help="phyphox export (CSV or zip)"),
+    manual: Optional[Path] = typer.Option(None, exists=True, dir_okay=False, help="Equipment manual PDF"),
+    duration: float = typer.Option(10.0, help="Seconds to analyse"),
+    capture_fps: Optional[float] = typer.Option(None, help="True recording fps, if the file was re-timed on export"),
+    no_diagnose: bool = typer.Option(False, "--no-diagnose", help="Measure only; skip Muse Spark (and the fix images)"),
+    no_visualize: bool = typer.Option(False, "--no-visualize", help="Skip the Muse Image fix pictures"),
+    skip_check: bool = typer.Option(False, "--skip-check", help="Upload even if the clip check fails"),
+    no_wait: bool = typer.Option(False, "--no-wait", help="Start the job and return"),
+    server: Optional[str] = SERVER,
+    token: Optional[str] = TOKEN,
+):
+    """Analyse a clip on the server, in your account, and print the report link."""
+    from resonance.clipcheck import check as run_check
+
+    if not skip_check:
+        ck = run_check(video)
+        if not ck.usable:
+            for level, msg in ck.findings:
+                if level == "bad":
+                    typer.secho(f"  x  {msg}", fg=typer.colors.RED, err=True)
+            typer.echo("  Not uploaded. Use --skip-check to upload anyway.", err=True)
+            raise typer.Exit(1)
+    c = _client(server, token)
+    fields = {"prompt": prompt, "machine": machine or "", "duration": duration, "capture_fps": capture_fps,
+              "diagnose": not no_diagnose, "visualize": not (no_diagnose or no_visualize)}
+    typer.echo(f"  Uploading {video.name} ({video.stat().st_size / 1e6:.0f} MB) to {c.server} ...")
+    job = _remote(lambda: c.upload(video, fields, accel_csv, manual))
+    if no_wait:
+        typer.echo(f"  Started job {job}. Follow it in Runs on {c.server}/app")
+        return
+    j = _remote(lambda: c.wait(job, lambda s: typer.echo(f"  done: {s}")))
+    if j["status"] == "error":
+        typer.secho(f"  Failed: {j['error']}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    d = _remote(lambda: c.run(j["run"]))
+    v = d["report"]["vibration"]["dominant"]
+    typer.secho(f"\n  {v['freq_hz']:.2f} Hz ({v['freq_hz'] * 60:,.0f} cpm), SNR {v['snr']:.0f}", bold=True)
+    dx = (d.get("diagnosis") or {}).get("diagnosis")
+    if dx:
+        typer.echo(f"  {dx['primary_fault'].replace('_', ' ')}, {dx['severity'].replace('_', ' ')}, confidence {dx['confidence']:.0%}")
+    for w in d["report"].get("warnings", []):
+        typer.secho(f"  ! {w}", fg=typer.colors.YELLOW)
+    typer.echo(f"  Report: {c.report_url(j['run'])}")
+
+
+@app.command()
+def runs(
+    limit: int = typer.Option(20, help="How many to list"),
+    server: Optional[str] = SERVER,
+    token: Optional[str] = TOKEN,
+):
+    """List your runs on the server, newest first."""
+    from datetime import datetime
+
+    c = _client(server, token)
+    rows = _remote(c.runs)
+    if not rows:
+        typer.echo("  No runs yet. Try: resonance upload clip.MOV --prompt fan")
+    for r in rows[:limit]:
+        when = datetime.fromtimestamp(r["created"]).strftime("%Y-%m-%d %H:%M")
+        fault = (r.get("fault") or "not diagnosed").replace("_", " ")
+        tag = "" if r.get("mine") else "  [shared example]" if r.get("shared") else ""
+        typer.echo(f"  {when}  {r['run']:<36} {r['freq_hz']:>8.2f} Hz  {(r.get('machine') or r.get('prompt') or ''):<24.24} {fault}{tag}")
+
+
+@app.command()
+def pull(
+    run: str = typer.Argument(..., help="Run id, from `resonance runs`"),
+    to: Path = typer.Option(Path("out"), help="Folder to download into; the run lands in <to>/<run>/"),
+    server: Optional[str] = SERVER,
+    token: Optional[str] = TOKEN,
+):
+    """Download a run's report, diagnosis, images and magnified video."""
+    c = _client(server, token)
+    files = _remote(lambda: c.download(run, to / run))
+    typer.echo(f"  {len(files)} files -> {to / run}/")
 
 
 if __name__ == "__main__":
