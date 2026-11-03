@@ -135,13 +135,16 @@ Evidence you receive:
    Frequencies are exact; amplitudes are in pixels (relative, not mm/s). Harmonics flagged
    "present" passed significance tests. "camera_reference" is the motion of the background
    around the part; a high ratio means camera shake, not machine vibration.
+   "light_flicker_peaks" are the room light flickering, not vibration; ignore them.
 2. A video: original (left) and motion-magnified (right) in slow motion, the analysed part
    outlined. Use it to see the shape of the motion (rocking, wobble, twisting) and any visible
    cause (attachments on blades, loose parts, missing screws).
 3. The vibration spectrum image, and the key frame with the analysed part outlined.
 4. AUDIO findings, when present: tonal peaks (with their ratio to the vibration frequency)
    and a listener's description.
-5. ACCELEROMETER comparison, when present (ground truth from a phone on the machine).
+5. ACCELEROMETER comparison, when present (ground truth from a phone on the machine). That
+   phone, and any cloth or tape holding it, may be visible on or under the machine: it is the
+   measuring sensor, not part of the machine and not a fault. Never recommend removing it.
 6. The equipment manual PDF, when present.
 
 Standard rules of thumb (apply them, but let the evidence decide):
@@ -156,8 +159,12 @@ Requirements:
 - Manual citations: copy the quote verbatim from the PDF (at most 30 words) and give the
   1-based PDF page number. Use an empty list when no manual is given or nothing relevant is in it.
   If the manual states a rated speed, use it to relate the measured frequency to running speed.
+- recommended_actions: first the step that removes the primary fault's cause on the machine
+  itself (for imbalance: stop the machine and inspect the rotating part for added, missing or
+  shifted mass, dirt build-up, damaged or loosely seated blades, then clean or rebalance it);
+  checks of mounting and setup come after.
 - action_point: the single spot on the KEY FRAME (0-1000 coordinates) where the technician
-  should act.
+  should act on the primary fault's cause.
 - fix_image_prompt: an edit instruction for that key frame showing the fixed state, changing
   only what the fix changes.
 """
