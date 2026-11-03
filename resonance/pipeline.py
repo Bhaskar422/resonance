@@ -140,12 +140,11 @@ def _measure(prep: rio.PreparedVideo, mask: np.ndarray, window: tuple[slice, sli
     return np.asarray(d_t), (np.asarray(d_c) if camera else None)
 
 
-def _uniform(prep: rio.PreparedVideo, d: np.ndarray) -> tuple[np.ndarray, float]:
+def _spectrum(prep: rio.PreparedVideo, d: np.ndarray) -> fq.Spectrum:
     n = min(len(d), prep.timestamps.size)
-    if prep.is_vfr:
-        _, du, fs = fq.resample_uniform(prep.timestamps[:n], d[:n])
-        return du, fs
-    return d[:n], prep.fs
+    if prep.is_vfr:  # dropped or jittered frames: Fourier sum on the true timestamps
+        return fq.nonuniform_spectrum(prep.timestamps[:n], d[:n])
+    return fq.amplitude_spectrum(d[:n], prep.fs)
 
 
 def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
@@ -182,23 +181,23 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
     if excluded > 0.6:
         prep.warnings.append(f"{excluded:.0%} of the mask was excluded as fast-moving; the remaining region may be small")
     d_target, d_camera = _measure(prep, measured, window)
-    sig, fs = _uniform(prep, d_target)
-    spec = fq.amplitude_spectrum(sig, fs)
+    spec = _spectrum(prep, d_target)
+    fs = spec.fs
     fmax = min(opts.fmax or fs / 2, fs / 2)
     peak = fq.dominant_peak(spec, opts.fmin, fmax)
     harmonics = fq.harmonics(spec, peak.freq_hz)
     cam_spec = None
     cam_info = None
     if d_camera is not None:
-        cam_sig, _ = _uniform(prep, d_camera)
-        cam_spec = fq.amplitude_spectrum(cam_sig, fs)
+        cam_spec = _spectrum(prep, d_camera)
         cam_at_f0 = fq.peak_near(cam_spec, peak.freq_hz, max(0.03 * peak.freq_hz, 2 * spec.resolution_hz))
         ratio = cam_at_f0.amplitude / peak.amplitude if cam_at_f0 else 0.0
         cam_info = {"amplitude_at_f0_px": round(cam_at_f0.amplitude, 5) if cam_at_f0 else None, "ratio_to_target": round(ratio, 3)}
         if ratio > 0.3:
             prep.warnings.append(
                 f"the background around the mask moves at {peak.freq_hz:.2f} Hz with {ratio:.0%} of the target's amplitude; "
-                "the camera may be shaking (put the phone on a separate tripod, not on the machine's table)"
+                "either what the machine stands on vibrates with it, or the camera is shaking (put the phone on a separate "
+                "tripod, not on the machine's table)"
             )
     timer.lap("measure")
 
@@ -212,7 +211,9 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
         accel_result = {"source": rec.source, "samples": int(rec.t.size), "duration_s": round(float(rec.t[-1]), 2), **cmp.to_dict()}
     timer.lap("accel")
 
-    cfg = MagnifyConfig.around(peak.freq_hz, fs, alpha=opts.alpha)
+    # The magnifier filters frame by frame, so it needs the rate frames actually arrive at.
+    frame_rate = (prep.timestamps.size - 1) / (prep.timestamps[-1] - prep.timestamps[0]) if prep.is_vfr else fs
+    cfg = MagnifyConfig.around(peak.freq_hz, frame_rate, alpha=opts.alpha)
     magnifier = MaskedMagnifier(mask.shape, measured, cfg)
     caption = (
         f"{peak.freq_hz:.2f} Hz ({peak.freq_hz * 60:.0f} cpm)  |  magnified x{cfg.alpha:g} in {cfg.low_hz:.1f}-{cfg.high_hz:.1f} Hz  |  "
@@ -259,7 +260,7 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
         "vibration": {
             "dominant": peak.to_dict(),
             "dominant_cpm": round(peak.freq_hz * 60, 1),
-            "direction_deg": round(fq.principal_direction_deg(sig), 1),
+            "direction_deg": round(fq.principal_direction_deg(d_target), 1),
             "spectral_resolution_hz": round(spec.resolution_hz, 4),
             "harmonics": [
                 {

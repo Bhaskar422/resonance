@@ -32,6 +32,10 @@ class TranslationTracker:
 
     Streaming: call :meth:`update` once per frame, so long clips never need to sit in
     memory. ``iterations`` > 1 adds Gauss–Newton refinement for motions near or above 1 px.
+
+    Brightness is solved for alongside motion: a per-frame gain, offset and vertical gain
+    gradient. Mains-powered lights flicker at twice the grid frequency, and at slow-motion
+    exposures that flicker (and its rolling-shutter bands) would otherwise read as motion.
     """
 
     def __init__(self, reference: np.ndarray, mask: np.ndarray, *, blur_sigma: float = 1.0, iterations: int = 2):
@@ -44,11 +48,15 @@ class TranslationTracker:
         if weight.sum() < 16:
             raise ValueError("mask is too small to track")
         self.w = weight
-        self.gx, self.gy = gx * weight, gy * weight
-        g = np.array([[np.sum(self.gx * gx), np.sum(self.gx * gy)], [np.sum(self.gy * gx), np.sum(self.gy * gy)]])
+        g = np.array([[np.sum(weight * gx * gx), np.sum(weight * gx * gy)], [np.sum(weight * gy * gx), np.sum(weight * gy * gy)]])
         if np.linalg.cond(g) > 1e6:
             raise ValueError("masked region has too little texture to measure motion (aperture problem)")
-        self.g_inv = np.linalg.inv(g)
+        ys = np.nonzero(weight)[0]
+        yn = (np.arange(weight.shape[0], dtype=np.float32)[:, None] - ys.mean()) / max(np.ptp(ys) / 2, 1.0)
+        # Basis: x and y motion, then brightness gain, offset and gain gradient down the frame.
+        self.basis = np.stack([gx, gy, self.ref, np.ones_like(self.ref), self.ref * yn])
+        self.wbasis = self.basis * weight
+        self.h_inv = np.linalg.pinv(np.einsum("iyx,jyx->ij", self.wbasis, self.basis))
 
     def _prep(self, frame: np.ndarray) -> np.ndarray:
         f = to_gray(frame)
@@ -57,10 +65,13 @@ class TranslationTracker:
     def update(self, frame: np.ndarray) -> tuple[float, float]:
         cur = self._prep(frame)
         d = np.zeros(2)
+        photo = np.zeros(3)  # gain, offset, gain gradient
         warped = cur
         for _ in range(self.iterations):
-            diff = warped - self.ref
-            d -= self.g_inv @ np.array([np.sum(self.gx * diff), np.sum(self.gy * diff)])
+            diff = warped - self.ref - np.tensordot(photo, self.basis[2:], axes=1)
+            step = self.h_inv @ np.einsum("iyx,yx->i", self.wbasis, diff)
+            d -= step[:2]
+            photo += step[2:]
             # Undo the current estimate and re-solve for the residual motion.
             m = np.float32([[1, 0, -d[0]], [0, 1, -d[1]]])
             warped = cv2.warpAffine(cur, m, cur.shape[::-1], flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
@@ -99,10 +110,18 @@ def fast_motion_mask(frames: Iterable[np.ndarray], mask: np.ndarray, *, max_px_p
     swamp the rigid-motion estimate.
     """
     stack = []
+    m = mask.astype(bool)
     for i, f in enumerate(frames):
         if i >= n_frames:
             break
-        stack.append(cv2.GaussianBlur(to_gray(f), (0, 0), 1.0))
+        g = cv2.GaussianBlur(to_gray(f), (0, 0), 1.0)
+        # Match each frame's brightness to the first, so light flicker isn't taken for motion.
+        mu, sd = g[m].mean(), g[m].std() + 1e-6
+        if stack:
+            g = (g - mu) / sd * stack0[1] + stack0[0]
+        else:
+            stack0 = (mu, sd)
+        stack.append(g)
     if len(stack) < 3:
         return np.zeros_like(mask, bool)
     s = np.stack(stack)
@@ -143,6 +162,25 @@ def resample_uniform(t: np.ndarray, x: np.ndarray, fs: float | None = None) -> t
 def is_uniform(t: np.ndarray, rel_tol: float = 0.02) -> bool:
     dt = np.diff(np.asarray(t, float))
     return bool(dt.size == 0 or np.max(np.abs(dt - np.median(dt))) <= rel_tol * np.median(dt))
+
+
+def clock_rate(t: np.ndarray) -> float:
+    """The capture clock of a clip with dropped frames: phones skip frames in low light
+    (e.g. keep 2 of every 3 at 240 fps) but every kept frame still sits on the 240 Hz grid,
+    so all gaps are whole multiples of one period. Plain timing jitter has no such grid; then
+    this is the median rate."""
+    dt = np.diff(np.asarray(t, float))
+    dt = dt[dt > 0]
+    m = float(np.median(dt))
+    shortest = float(np.percentile(dt, 5))  # one clock tick, or a multiple of it
+    for k in (1, 2, 3):
+        period = shortest / k
+        steps = np.round(dt / period)
+        if np.all(steps >= 1):
+            period = float(np.median(dt / steps))
+            if np.percentile(np.abs(dt / period - np.round(dt / period)), 90) < 0.15:
+                return 1.0 / period
+    return 1.0 / m
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +245,43 @@ def amplitude_spectrum(x: np.ndarray, fs: float, *, pad_factor: int = 4) -> Spec
     amp = 2.0 * np.abs(spec) / win.sum()
     amp = np.sqrt(np.sum(amp**2, axis=1))
     return Spectrum(np.fft.rfftfreq(nfft, 1.0 / fs), amp, fs, n / fs)
+
+
+def nonuniform_spectrum(t: np.ndarray, x: np.ndarray, fs: float | None = None, *, pad_factor: int = 4, chunk: int = 256) -> Spectrum:
+    """Amplitude spectrum of samples taken at arbitrary times ``t``: a direct Fourier sum on
+    the true timestamps, with a Hann window in time. For evenly spaced samples it equals
+    :func:`amplitude_spectrum`; for clips with dropped frames it avoids the false peaks that
+    interpolating onto a uniform grid would create. ``fs`` is the capture clock (Nyquist =
+    fs/2), by default :func:`clock_rate`."""
+    t = np.asarray(t, float)
+    x = np.asarray(x, float)
+    if x.ndim == 1:
+        x = x[:, None]
+    order = np.argsort(t)
+    t, x = t[order] - t[order][0], x[order]
+    fs = clock_rate(t) if fs is None else fs
+    span = t[-1] if t[-1] > 0 else 1.0 / fs
+    x = x - np.polynomial.polynomial.polyval(t, np.polynomial.polynomial.polyfit(t, x, 1)).T
+    win = 0.5 - 0.5 * np.cos(2 * np.pi * t / span)
+    n_equiv = span * fs + 1
+    nfft = int(2 ** np.ceil(np.log2(n_equiv * pad_factor)))
+    freqs = np.arange(nfft // 2 + 1) * fs / nfft
+    wx = win[:, None] * x
+    amp = np.empty(freqs.size)
+    for i in range(0, freqs.size, chunk):
+        e = np.exp(-2j * np.pi * np.outer(freqs[i:i + chunk], t))
+        a = 2.0 * np.abs(e @ wx) / win.sum()
+        amp[i:i + chunk] = np.sqrt(np.sum(a**2, axis=1))
+    return Spectrum(freqs, amp, fs, span + 1.0 / fs)
+
+
+def spectrum_at(t: np.ndarray, x: np.ndarray, fs: float | None = None) -> Spectrum:
+    """Spectrum of a signal with timestamps: FFT when they are evenly spaced, otherwise
+    the direct sum on the true times."""
+    t = np.asarray(t, float)
+    if is_uniform(t):
+        return amplitude_spectrum(x, fs or 1.0 / np.median(np.diff(t)))
+    return nonuniform_spectrum(t, x)
 
 
 def _band(spec: Spectrum, fmin: float, fmax: float | None) -> np.ndarray:

@@ -26,7 +26,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from resonance.frequency import is_uniform
+from resonance.frequency import clock_rate, is_uniform
 
 MIN_SLOWMO_FPS = 120.0
 HDR_TRANSFERS = {"smpte2084", "arib-std-b67"}  # PQ (HDR10 / Dolby Vision) and HLG
@@ -311,10 +311,16 @@ def prepare(
     elif capture_fps and abs(capture_fps - file_fs) > 0.05 * file_fs:
         warnings.append(f"--capture-fps {capture_fps} ignored: it is not higher than the file's {file_fs:.1f} fps")
     t = t * time_scale
-    fs = 1.0 / float(np.median(np.diff(t)))
-
-    if not is_uniform(t):
-        warnings.append("variable frame rate: the motion signal is resampled to a uniform time grid")
+    if is_uniform(t):
+        fs = 1.0 / float(np.median(np.diff(t)))
+    else:
+        # Uneven spacing, usually a phone dropping frames in low light: report the capture
+        # clock, since the spectrum is computed on the true frame times up to its Nyquist.
+        fs = clock_rate(t)
+        warnings.append(
+            f"uneven frame timing ({(t.size - 1) / t[-1]:.0f} fps on average on a {fs:.0f} fps clock; phones drop frames "
+            "in low light, so more light helps): the spectrum is computed on the true frame times"
+        )
     if fs < MIN_SLOWMO_FPS:
         warnings.append(
             f"only {fs:.1f} fps (Nyquist {fs / 2:.1f} Hz). Record in slow motion (240 fps) for reliable results; "

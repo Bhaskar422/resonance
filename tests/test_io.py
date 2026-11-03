@@ -79,7 +79,7 @@ def test_variable_frame_rate_is_detected(tmp_path, clip):
     prep = rio.prepare(vfr, tmp_path / "work")
     assert prep.is_vfr
     assert prep.fs == pytest.approx(240.0, rel=0.05)
-    assert any("variable frame rate" in w for w in prep.warnings)
+    assert any("uneven frame timing" in w for w in prep.warnings)
 
 
 def test_missing_file_raises(tmp_path):

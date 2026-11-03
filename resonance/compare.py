@@ -32,12 +32,14 @@ def _load(run_dir: Path) -> tuple[dict, fq.Spectrum, float]:
     d, t = z["target"], z["timestamps"]
     n = min(len(d), t.size)
     if r["video"]["variable_frame_rate"]:
+        spec = fq.nonuniform_spectrum(t[:n], d[:n])
         _, d, fs = fq.resample_uniform(t[:n], d[:n])
     else:
         d, fs = d[:n], r["analysis_fs"]
+        spec = fq.amplitude_spectrum(d, fs)
     hp = sps.sosfiltfilt(sps.butter(4, 2.0, btype="high", fs=fs, output="sos"), sps.detrend(d, axis=0), axis=0)
     rms = float(np.sqrt(np.mean(np.sum(hp**2, axis=1))))
-    return r, fq.amplitude_spectrum(d, fs), rms
+    return r, spec, rms
 
 
 def _change(before: float, after: float) -> dict:

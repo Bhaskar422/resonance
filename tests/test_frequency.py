@@ -128,3 +128,47 @@ def test_window_sidelobes_are_not_listed_as_peaks():
     freqs = [p.freq_hz for p in fq.top_peaks(fq.amplitude_spectrum(x, fs))]
     assert freqs[:2] == pytest.approx([19.0, 38.0], abs=0.05)
     assert not any(15.0 < f < 18.5 or 19.5 < f < 23.0 for f in freqs)
+
+
+def test_dropped_frames_keep_the_true_frequency():
+    # A phone in low light keeps 2 of every 3 frames of its 240 Hz clock. A 70 Hz tone is
+    # above half the average rate (80 fps after drops would be fine, but interpolation is not).
+    fs, f, a = 240.0, 70.0, 0.05
+    t = np.arange(int(10 * fs)) / fs
+    t = t[np.arange(t.size) % 3 != 2]
+    x = a * np.sin(2 * np.pi * f * t) + 0.002 * np.random.default_rng(2).standard_normal(t.size)
+    for cut in (t, t[:-1], t[1:]):  # odd and even numbers of gaps
+        assert fq.clock_rate(cut) == pytest.approx(fs, rel=1e-6)
+    spec = fq.nonuniform_spectrum(t, x)
+    peak = fq.dominant_peak(spec)
+    assert spec.nyquist == pytest.approx(120.0)
+    assert peak.freq_hz == pytest.approx(f, abs=0.02)
+    assert peak.amplitude == pytest.approx(a, rel=0.05)
+    # Interpolating onto a uniform grid would have smeared it (the old behaviour).
+    _, xu, fsu = fq.resample_uniform(t, x)
+    assert fq.dominant_peak(fq.amplitude_spectrum(xu, fsu)).amplitude < 0.7 * a
+
+
+def test_nonuniform_spectrum_matches_fft_on_even_samples():
+    fs = 240.0
+    t = np.arange(960) / fs
+    x = 0.3 * np.sin(2 * np.pi * 17.0 * t)
+    a, b = fq.amplitude_spectrum(x, fs), fq.nonuniform_spectrum(t, x, fs)
+    assert fq.dominant_peak(b).freq_hz == pytest.approx(fq.dominant_peak(a).freq_hz, abs=0.01)
+    assert fq.dominant_peak(b).amplitude == pytest.approx(fq.dominant_peak(a).amplitude, rel=0.01)
+
+
+def test_light_flicker_is_not_measured_as_motion(clip):
+    # 100 Hz mains flicker with rolling-shutter banding: brightness gain changing per frame and
+    # down the frame. Real motion must still come out right, with nothing at the flicker rate.
+    t = np.arange(len(clip.frames)) / clip.fps
+    rows = np.linspace(-1, 1, clip.frames[0].shape[0]).reshape(-1, *[1] * (clip.frames[0].ndim - 1))
+    flicker = [np.clip(f.astype(np.float32) * (1 + 0.25 * np.sin(2 * np.pi * 100 * ti) * (1 + 0.5 * rows)) + 6 * np.sin(2 * np.pi * 100 * ti), 0, 255).astype(np.float32)
+               for f, ti in zip(clip.frames, t)]
+    d = fq.translation_signal(flicker, clip.target_mask)
+    truth = clip.target_displacement - clip.target_displacement[0]
+    assert np.sqrt(np.mean((d - truth) ** 2)) < 0.05
+    spec = fq.amplitude_spectrum(d, clip.fps)
+    assert fq.dominant_peak(spec).freq_hz == pytest.approx(17.0, abs=0.25)
+    at_flicker = fq.peak_near(spec, 100.0, 1.0)
+    assert at_flicker is None or at_flicker.amplitude < 0.02
