@@ -182,3 +182,21 @@ def test_dominant_peak_ignores_drift_skirt_at_band_edge():
     x = 0.4 * np.sin(2 * np.pi * 0.7 * t + 1) + 0.005 * np.sin(2 * np.pi * 80.0 * t)
     peak = fq.dominant_peak(fq.amplitude_spectrum(x, fs), fmin=2.0)
     assert peak.freq_hz == pytest.approx(80.0, abs=0.05)
+
+
+def test_light_flicker_peak_is_skipped_but_real_vibration_is_kept():
+    # A fan: residue of 98.4 Hz lamp flicker beats the real 16.4 Hz rocking. The background's
+    # brightness pulses at 98.4 Hz only, so that line is the light's, not the machine's.
+    fs = 240.0
+    t = np.arange(int(10 * fs)) / fs
+    rng = np.random.default_rng(3)
+    motion = 0.3 * np.sin(2 * np.pi * 98.4 * t) + 0.2 * np.sin(2 * np.pi * 16.4 * t) + 0.01 * rng.standard_normal(t.size)
+    light = 120 + 0.3 * np.sin(2 * np.pi * 98.4 * t) + 0.05 * rng.standard_normal(t.size)
+    peak, skipped = fq.own_peak(fq.amplitude_spectrum(motion, fs), fq.amplitude_spectrum(light, fs))
+    assert peak.freq_hz == pytest.approx(16.4, abs=0.05)
+    assert [round(p.freq_hz) for p in skipped] == [98]
+
+    # A speaker shaking its table: the strongest line is real, and the light is steady there.
+    speaker = 0.3 * np.sin(2 * np.pi * 60.0 * t) + 0.01 * rng.standard_normal(t.size)
+    peak, skipped = fq.own_peak(fq.amplitude_spectrum(speaker, fs), fq.amplitude_spectrum(light, fs))
+    assert peak.freq_hz == pytest.approx(60.0, abs=0.05) and not skipped

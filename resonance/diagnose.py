@@ -210,7 +210,13 @@ def _norm(s: str) -> str:
 def pdf_pages(pdf: Path) -> list[str]:
     from pypdf import PdfReader
 
-    return [_norm(p.extract_text() or "") for p in PdfReader(str(pdf)).pages]
+    pages = []
+    for p in PdfReader(str(pdf)).pages:
+        try:  # a page pypdf cannot parse (huge drawing streams) just can't verify quotes
+            pages.append(_norm(p.extract_text() or ""))
+        except Exception:
+            pages.append("")
+    return pages
 
 
 def _match_score(quote: str, page: str) -> float:
@@ -254,6 +260,7 @@ def _measurements_for_model(report: dict, accel_present: bool) -> dict:
         "motion_direction_deg": v["direction_deg"],
         "harmonics": v["harmonics"],
         "top_peaks": v["top_peaks"],
+        "light_flicker_peaks": v.get("light_flicker_peaks", []),
         "camera_reference": v["camera_reference"],
         "magnification": report["magnification"],
     }
@@ -326,7 +333,11 @@ def diagnose(run_dir: str | Path, *, manual: Path | None = None, machine_hint: s
     dx = json.loads(resp.output_text)
 
     if manual:
-        dx["manual_citations"] = verify_citations(dx["manual_citations"], pdf_pages(Path(manual)))
+        try:
+            pages = pdf_pages(Path(manual))
+        except Exception:  # an unreadable PDF leaves the quotes unverified, never loses the diagnosis
+            pages = []
+        dx["manual_citations"] = verify_citations(dx["manual_citations"], pages)
     ap = dx["action_point"]
     dx["action_point_px"] = {"x": round(ap["x"] / 1000 * key_w), "y": round(ap["y"] / 1000 * key_h)}
     result = {

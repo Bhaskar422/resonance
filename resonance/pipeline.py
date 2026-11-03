@@ -120,10 +120,12 @@ def _get_mask(opts: AnalyzeOptions, frame: np.ndarray, run_dir: Path, ledger: Co
     return mask, {"source": "sam-3.1", "prompt": opts.prompt, **meta}
 
 
-def _measure(prep: rio.PreparedVideo, mask: np.ndarray, window: tuple[slice, slice]) -> tuple[np.ndarray, np.ndarray | None]:
-    """Displacement of the masked part and of a background ring around it (camera reference)."""
+def _measure(prep: rio.PreparedVideo, mask: np.ndarray, window: tuple[slice, slice], outline: np.ndarray) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
+    """Displacement of the masked part and of a background ring around its outline (camera
+    reference), and the ring's mean brightness (to recognise light flicker). The ring follows
+    the whole outline, so holes cut for spinning parts do not pull the background inside."""
     m_crop = mask[window]
-    ring = (_dilate(mask, CAMERA_RING[1]) & ~_dilate(mask, CAMERA_RING[0]))[window]
+    ring = (_dilate(outline, CAMERA_RING[1]) & ~_dilate(outline, CAMERA_RING[0]))[window]
     frames = prep.iter_frames()
     first = next(frames)[window]
     target = fq.TranslationTracker(first, m_crop)
@@ -132,12 +134,14 @@ def _measure(prep: rio.PreparedVideo, mask: np.ndarray, window: tuple[slice, sli
     except ValueError:
         camera = None
     d_t, d_c = [target.update(first)], [camera.update(first)] if camera else []
+    light = [fq.to_gray(first)[ring].mean()] if camera else []
     for f in frames:
         c = f[window]
         d_t.append(target.update(c))
         if camera:
             d_c.append(camera.update(c))
-    return np.asarray(d_t), (np.asarray(d_c) if camera else None)
+            light.append(fq.to_gray(c)[ring].mean())
+    return np.asarray(d_t), (np.asarray(d_c) if camera else None), (np.asarray(light, np.float64) if camera else None)
 
 
 def _spectrum(prep: rio.PreparedVideo, d: np.ndarray) -> fq.Spectrum:
@@ -180,16 +184,30 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
         report.save_mask_overlay(run_dir / "mask_measured.png", key, measured)
     if excluded > 0.6:
         prep.warnings.append(f"{excluded:.0%} of the mask was excluded as fast-moving; the remaining region may be small")
-    d_target, d_camera = _measure(prep, measured, window)
+    d_target, d_camera, light = _measure(prep, measured, window, mask)
     spec = _spectrum(prep, d_target)
     fs = spec.fs
     fmax = min(opts.fmax or fs / 2, fs / 2)
     peak = fq.dominant_peak(spec, opts.fmin, fmax)
+    cam_spec = _spectrum(prep, d_camera) if d_camera is not None else None
+    light_spec = _spectrum(prep, light) if light is not None else None
+    flicker: list[fq.Peak] = []
+    if light_spec is not None:
+        peak, flicker = fq.own_peak(spec, light_spec, opts.fmin, fmax)
+    if flicker:
+        hz = ", ".join(f"{p.freq_hz:.1f}" for p in flicker[:3])
+        if fq.is_flicker(peak, light_spec):
+            own = "nothing else stands out"
+        elif peak.snr < 8:
+            own = f"no other clear vibration (strongest {peak.freq_hz:.2f} Hz, SNR {peak.snr:.0f})"
+        else:
+            own = f"the machine's strongest vibration is at {peak.freq_hz:.2f} Hz"
+        prep.warnings.append(f"skipped {hz} Hz: the room light flickers there (the background's brightness pulses with it); {own}")
     harmonics = fq.harmonics(spec, peak.freq_hz)
-    cam_spec = None
+    if light_spec is not None:  # a multiple that lands on the light's flicker is not the machine's
+        harmonics = [fq.Harmonic(h.order, h.expected_hz, None) if h.order > 1 and h.peak and fq.is_flicker(h.peak, light_spec) else h for h in harmonics]
     cam_info = None
-    if d_camera is not None:
-        cam_spec = _spectrum(prep, d_camera)
+    if cam_spec is not None:
         cam_at_f0 = fq.peak_near(cam_spec, peak.freq_hz, max(0.03 * peak.freq_hz, 2 * spec.resolution_hz))
         ratio = cam_at_f0.amplitude / peak.amplitude if cam_at_f0 else 0.0
         cam_info = {"amplitude_at_f0_px": round(cam_at_f0.amplitude, 5) if cam_at_f0 else None, "ratio_to_target": round(ratio, 3)}
@@ -279,7 +297,8 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
                 }
                 for h in harmonics
             ],
-            "top_peaks": [p.to_dict() for p in fq.top_peaks(spec, fmin=opts.fmin, fmax=fmax)],
+            "top_peaks": [p.to_dict() for p in fq.top_peaks(spec, fmin=opts.fmin, fmax=fmax) if not (light_spec is not None and fq.is_flicker(p, light_spec))],
+            "light_flicker_peaks": [p.to_dict() for p in flicker],
             "motion_model": "rigid translation of the masked region (Lucas-Kanade)",
             "camera_reference": cam_info,
         },

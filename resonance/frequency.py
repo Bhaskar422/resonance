@@ -319,6 +319,28 @@ def dominant_peak(spec: Spectrum, fmin: float = 2.0, fmax: float | None = None) 
     return _refine(spec, i, noise_floor(spec, fmin, fmax))
 
 
+def is_flicker(peak: Peak, brightness: Spectrum, min_snr: float = 5.0) -> bool:
+    """True when the background's brightness pulses at this frequency. LED and tube lights
+    flicker (often near twice the mains frequency) and the tracker keeps a residue of it;
+    real vibration barely changes the background's brightness (SNR 1-3 on the JBL clips)."""
+    near = peak_near(brightness, peak.freq_hz, max(0.03 * peak.freq_hz, 2 * brightness.resolution_hz))
+    return near is not None and near.snr >= min_snr
+
+
+def own_peak(spec: Spectrum, brightness: Spectrum, fmin: float = 2.0, fmax: float | None = None) -> tuple[Peak, list[Peak]]:
+    """The strongest peak that is not light flicker, and the flicker peaks skipped on the way.
+    When nothing but flicker stands out, the plain dominant peak comes back with them."""
+    dom = dominant_peak(spec, fmin, fmax)
+    if not is_flicker(dom, brightness):
+        return dom, []
+    skipped = []
+    for p in top_peaks(spec, n=50, fmin=fmin, fmax=fmax, min_snr=0.0):
+        if not is_flicker(p, brightness):
+            return p, skipped
+        skipped.append(p)
+    return dom, skipped
+
+
 def top_peaks(spec: Spectrum, n: int = 5, fmin: float = 2.0, fmax: float | None = None, min_snr: float = 3.0) -> list[Peak]:
     band = _band(spec, fmin, fmax)
     floor = noise_floor(spec, fmin, fmax)

@@ -39,6 +39,18 @@ def test_citations_are_verified_and_page_corrected(manual_pdf):
     assert out[2]["found_on_page"] is None
 
 
+def test_unreadable_pdf_page_leaves_its_quotes_unverified(manual_pdf, monkeypatch):
+    # A real fan manual had drawing pages pypdf refuses ("maximum number of tokens per
+    # stream"); that crashed the check after the diagnosis had been paid for.
+    import pypdf
+
+    real = pypdf.PageObject.extract_text
+    calls = iter(range(100))
+    monkeypatch.setattr(pypdf.PageObject, "extract_text", lambda self, *a, **k: (_ for _ in ()).throw(pypdf.errors.LimitReachedError("x")) if next(calls) == 0 else real(self, *a, **k))
+    pages = diagnose.pdf_pages(manual_pdf)
+    assert pages[0] == "" and "1250 rpm" in pages[1]
+
+
 def test_audio_tonal_peaks_report_ratio_to_vibration(tmp_path):
     sr = audio.SAMPLE_RATE
     t = np.arange(4 * sr) / sr
