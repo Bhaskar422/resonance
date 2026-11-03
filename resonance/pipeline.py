@@ -213,18 +213,23 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
 
     # The magnifier filters frame by frame, so it needs the rate frames actually arrive at.
     frame_rate = (prep.timestamps.size - 1) / (prep.timestamps[-1] - prep.timestamps[0]) if prep.is_vfr else fs
-    cfg = MagnifyConfig.around(peak.freq_hz, frame_rate, alpha=opts.alpha)
-    magnifier = MaskedMagnifier(mask.shape, measured, cfg)
+    try:
+        cfg = MagnifyConfig.around(peak.freq_hz, frame_rate, alpha=opts.alpha)
+    except ValueError:  # above what the frames that actually arrived can carry: show it unmagnified
+        cfg = None
+        prep.warnings.append(f"{peak.freq_hz:.1f} Hz is too fast to magnify at {frame_rate:.0f} frames per second; the video is not magnified")
+    magnifier = MaskedMagnifier(mask.shape, measured, cfg) if cfg else None
+    how = f"magnified x{cfg.alpha:g} in {cfg.low_hz:.1f}-{cfg.high_hz:.1f} Hz" if cfg else "not magnified"
     caption = (
-        f"{peak.freq_hz:.2f} Hz ({peak.freq_hz * 60:.0f} cpm)  |  magnified x{cfg.alpha:g} in {cfg.low_hz:.1f}-{cfg.high_hz:.1f} Hz  |  "
-        f"{prep.fs:.0f} fps, played at {opts.playback_fps:g} fps ({prep.fs / opts.playback_fps:.0f}x slower)"
+        f"{peak.freq_hz:.2f} Hz ({peak.freq_hz * 60:.0f} cpm)  |  {how}  |  "
+        f"{frame_rate:.0f} fps, played at {opts.playback_fps:g} fps ({frame_rate / opts.playback_fps:.0f}x slower)"
     )
     sbs = report.SideBySideWriter(run_dir / "side_by_side.mp4", mask.shape, measured, playback_fps=opts.playback_fps, caption=caption)
     buf: list[np.ndarray] = []
 
     def flush() -> None:
         chunk = np.stack(buf)
-        for orig, mag in zip(chunk, magnifier.process(chunk)):
+        for orig, mag in zip(chunk, magnifier.process(chunk) if magnifier else chunk):
             sbs.write(orig, mag)
         buf.clear()
 
@@ -277,7 +282,7 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
             "camera_reference": cam_info,
         },
         "accelerometer": accel_result,
-        "magnification": {"method": "linear Eulerian (Wu et al. 2012)", "alpha": cfg.alpha, "band_hz": [round(cfg.low_hz, 3), round(cfg.high_hz, 3)]},
+        "magnification": {"method": "linear Eulerian (Wu et al. 2012)", "alpha": cfg.alpha, "band_hz": [round(cfg.low_hz, 3), round(cfg.high_hz, 3)]} if cfg else None,
         "outputs": {k: str(run_dir / v) for k, v in {"video": "side_by_side.mp4", "spectrum": "spectrum.png", "mask": "mask_overlay.png"}.items()},
         "api_cost_usd": {"this_run": round(ledger.run_total, 4), "all_time": round(ledger.all_time_total(), 4), "calls": ledger.calls},
         "warnings": prep.warnings,

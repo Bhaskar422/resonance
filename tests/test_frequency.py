@@ -172,3 +172,13 @@ def test_light_flicker_is_not_measured_as_motion(clip):
     assert fq.dominant_peak(spec).freq_hz == pytest.approx(17.0, abs=0.25)
     at_flicker = fq.peak_near(spec, 100.0, 1.0)
     assert at_flicker is None or at_flicker.amplitude < 0.02
+
+
+def test_dominant_peak_ignores_drift_skirt_at_band_edge():
+    # Slow drift (a speaker creeping on a towel) leaks into the lowest bins; the bin at fmin
+    # can be higher than the real line without being a peak.
+    fs = 240.0
+    t = np.arange(int(10 * fs)) / fs
+    x = 0.4 * np.sin(2 * np.pi * 0.7 * t + 1) + 0.005 * np.sin(2 * np.pi * 80.0 * t)
+    peak = fq.dominant_peak(fq.amplitude_spectrum(x, fs), fmin=2.0)
+    assert peak.freq_hz == pytest.approx(80.0, abs=0.05)

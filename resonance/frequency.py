@@ -311,7 +311,11 @@ def dominant_peak(spec: Spectrum, fmin: float = 2.0, fmax: float | None = None) 
     band = _band(spec, fmin, fmax)
     if band.size == 0:
         raise ValueError(f"no spectrum bins between {fmin} and {fmax} Hz")
-    i = band[np.argmax(spec.amplitude[band])]
+    # The largest local maximum: the band edge can sit on the skirt of slow drift below fmin
+    # and be higher than any real line without being a peak itself.
+    a = spec.amplitude[band]
+    idx, _ = sps.find_peaks(a)
+    i = band[idx[np.argmax(a[idx])]] if idx.size else band[np.argmax(a)]
     return _refine(spec, i, noise_floor(spec, fmin, fmax))
 
 
