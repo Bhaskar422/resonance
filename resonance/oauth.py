@@ -60,7 +60,7 @@ def configured() -> dict[str, bool]:
 
 def _creds(provider: str) -> tuple[str, str]:
     if not configured().get(provider):
-        raise OAuthError(f"sign-in with {provider} is not set up on this server")
+        raise OAuthError(f"sign-in with {provider.capitalize() if provider != 'github' else 'GitHub'} is not set up on this server")
     return os.environ[f"RESONANCE_{provider.upper()}_CLIENT_ID"], os.environ[f"RESONANCE_{provider.upper()}_CLIENT_SECRET"]
 
 

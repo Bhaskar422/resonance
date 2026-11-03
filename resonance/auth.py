@@ -24,6 +24,7 @@ SESSION_DAYS = 30
 TOKEN_PREFIX = "rsn_"
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD = 8
+PROVIDER_NAMES = {"github": "GitHub", "google": "Google"}
 
 SCHEMA = """
 create table if not exists users (
@@ -164,7 +165,7 @@ class Accounts:
         if link:
             return self.user(link["user_id"])
         if not email or not verified:
-            raise AuthError(f"your {provider} account has no verified email address")
+            raise AuthError(f"your {PROVIDER_NAMES.get(provider, provider)} account has no verified email address")
         user = self.by_email(email)
         if user is None:
             user = self._create(email, name, None, avatar, verified=True)

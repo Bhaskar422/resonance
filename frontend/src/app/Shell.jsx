@@ -1,10 +1,11 @@
 import { Logo, Toast } from '../components/ui.jsx';
+import { AccountMenu } from './Account.jsx';
 
-export default function Shell({ v, children }) {
+export default function Shell({ v, a, children }) {
   return (
-    <div className="min-h-screen flex bg-bg text-fg font-sans text-[14px]">
+    <div className="min-h-screen flex bg-bg text-fg font-sans text-[14px]" style={{ '--bar-h': '60px' }}>
       <aside data-noprint className="hidden desk:flex flex-col w-[232px] shrink-0 sticky top-0 h-screen border-r border-line bg-panel">
-        <div className="p-[18px] border-b border-line"><Logo /></div>
+        <div className="h-[var(--bar-h)] shrink-0 flex items-center px-[18px] border-b border-line"><Logo /></div>
         <nav aria-label="Workspace" className="flex flex-col gap-0.5 px-2.5 py-3 flex-1">
           <div className="px-2.5 pt-1.5 pb-2.5 font-mono text-[10px] font-medium leading-none tracking-[.14em] text-fg-3">CHANNELS</div>
           {v.nav.map(n => (
@@ -22,7 +23,7 @@ export default function Shell({ v, children }) {
       </aside>
 
       <main className="flex-1 min-w-0 flex flex-col" style={{ paddingBottom: 'var(--tabpad)' }}>
-        <header data-noprint className="sticky top-0 z-30 flex items-center gap-3 py-2.5 border-b border-line backdrop-blur-[10px]"
+        <header data-noprint className="sticky top-0 z-30 h-[var(--bar-h)] shrink-0 flex items-center gap-3 border-b border-line backdrop-blur-[10px]"
           style={{ paddingInline: 'var(--pad)', background: 'color-mix(in oklch, var(--bg) 90%, transparent)' }}>
           <div className="desk:hidden"><Logo /></div>
           <div className="hidden desk:block min-w-0 truncate font-mono text-[11px] font-medium leading-none tracking-[.1em] uppercase text-fg-3">WS / <span className="text-fg">{v.pageTitle}</span></div>
@@ -45,6 +46,7 @@ export default function Shell({ v, children }) {
             <span className="size-1.5 rounded-full" style={{ background: v.live ? 'var(--signal)' : 'var(--sev-monitor)' }} />{v.modeLabel}
           </a>
           <button type="button" onClick={v.toggleTheme} aria-label="Toggle theme" className="size-[34px] shrink-0 border border-line-2 rounded-[3px] bg-transparent text-fg-2 text-[14px]">{v.themeIcon}</button>
+          {a && <AccountMenu a={a} />}
         </header>
 
         <div className="w-full max-w-[1380px] mx-auto flex flex-col gap-5 pt-6 pb-14" style={{ paddingInline: 'var(--pad)' }}>

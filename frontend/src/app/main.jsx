@@ -1,7 +1,9 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../styles.css';
 import { makeStore } from '../lib/store.js';
+import { boot, dataMode, useAccount } from '../lib/account.js';
+import { AuthPage, LinkPage } from './Account.jsx';
 import Shell from './Shell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import { Machines, MachineDetail } from './pages/Machines.jsx';
@@ -16,14 +18,15 @@ import More from './pages/More.jsx';
 import Kit from './pages/Kit.jsx';
 
 const store = makeStore('app');
-store.mount();
+boot();
 
 // The core parses the hash route; v.p says which page is active.
-function App() {
+function App({ a }) {
+  useEffect(() => { store.mount(); }, []);
   const v = store.useVals();
   const p = v.p || { dashboard: true };
   return (
-    <Shell v={v}>
+    <Shell v={v} a={a}>
       {p.dashboard && <Dashboard v={v} />}
       {p.machines && <Machines v={v} />}
       {p.machine && <MachineDetail v={v} />}
@@ -33,11 +36,21 @@ function App() {
       {p.rescan && <Rescan v={v} />}
       {p.guide && <Guide v={v} />}
       {p.usage && <Usage v={v} />}
-      {p.settings && <Settings v={v} />}
+      {p.settings && <Settings v={v} a={a} />}
       {p.more && <More v={v} />}
       {p.kit && <Kit v={v} />}
     </Shell>
   );
 }
 
-createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMode>);
+// Live data needs an account; the sample data can be explored without one.
+function Root() {
+  const a = useAccount();
+  const sample = dataMode() === 'sample';
+  if (a.status === 'loading') return <div className="min-h-screen bg-bg" aria-busy="true" />;
+  if (a.status === 'out' && !sample) return <AuthPage a={a} />;
+  if (a.status === 'in' && a.hash.startsWith('#/link')) return <LinkPage a={a} />;
+  return <App a={a} />;
+}
+
+createRoot(document.getElementById('root')).render(<StrictMode><Root /></StrictMode>);

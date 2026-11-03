@@ -1,4 +1,5 @@
 import { PageHeader, Panel, Switch } from '../../components/ui.jsx';
+import { AccountSettings } from '../Account.jsx';
 
 const ROW = 'flex items-center gap-3.5 px-4 py-3 border-b border-line last:border-b-0';
 
@@ -15,12 +16,14 @@ function Options({ opts, label, h = 'h-[34px]' }) {
   );
 }
 
-export default function Settings({ v }) {
+export default function Settings({ v, a }) {
   const s = v.set;
   if (!s) return null;
   return (
     <div className="flex flex-col gap-4 max-w-[820px]">
       <PageHeader eyebrow="CH 08 · CONFIG" title="Settings" />
+
+      {a && <AccountSettings a={a} />}
 
       <Panel label="API KEYS" bodyClass="">
         {s.keys.map(k => (

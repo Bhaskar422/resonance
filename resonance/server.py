@@ -555,8 +555,11 @@ def oauth_callback(provider: str, request: Request, code: str = "", state: str =
     def back(msg: str) -> RedirectResponse:
         return RedirectResponse(f"/app?auth_error={quote(msg)}", status_code=302)
 
+    if provider not in acct.PROVIDER_NAMES:
+        raise HTTPException(404, "unknown provider")
+
     if error:
-        return back("sign-in was cancelled" if error == "access_denied" else f"{provider} said: {error}")
+        return back("sign-in was cancelled" if error == "access_denied" else f"{acct.PROVIDER_NAMES[provider]} said: {error}")
     try:
         if not state or request.cookies.get(STATE_COOKIE) != state:
             raise oauth.OAuthError("this sign-in did not start in this browser; try again")
@@ -567,7 +570,7 @@ def oauth_callback(provider: str, request: Request, code: str = "", state: str =
         return back(str(e))
     except Exception as e:  # network trouble talking to the provider
         traceback.print_exc()
-        return back(f"could not reach {provider} ({type(e).__name__})")
+        return back(f"could not reach {acct.PROVIDER_NAMES[provider]} ({type(e).__name__})")
     resp = RedirectResponse(entry["next"], status_code=302)
     _signed_in(request, user, resp)
     resp.delete_cookie(STATE_COOKIE, path="/")

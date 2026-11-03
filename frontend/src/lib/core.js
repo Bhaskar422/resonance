@@ -287,7 +287,7 @@ export function createApp(opts = {}) {
   const base = () => CONFIG.API_BASE.replace(/\/$/, '');
   const abs = u => !u ? u : (/^(https?:|blob:|data:)/.test(u) ? u : base() + (u[0] === '/' ? '' : '/') + u);
   const origin = () => base() || location.origin;
-  async function jf(path, init) { const r = await fetch(base() + path, init); if (!r.ok) { let m = `${r.status} ${r.statusText}`; try { const j = await r.json(); m = j.detail || j.error || m; } catch (e) {} throw new Error(m); } return r.json(); }
+  async function jf(path, init) { const r = await fetch(base() + path, init); if (r.status === 401) dispatchEvent(new Event('resonance:unauthorized')); if (!r.ok) { let m = `${r.status} ${r.statusText}`; try { const j = await r.json(); m = j.detail || j.error || m; } catch (e) {} throw new Error(m); } return r.json(); }
   const api = {
     async runs() { if (!live()) { await wait(420); return SAMPLE.runs.slice(); } return (await jf('/api/runs')).map(r => ({ ...r, thumb: abs(r.thumb) })); },
     async run(id) { if (!live()) { await wait(280); const d = SAMPLE.details[id]; if (!d) throw new Error(`Run “${id}” was not found.`); return d; } const d = await jf('/api/runs/' + encodeURIComponent(id)); const files = {}; for (const k in d.files || {}) files[k] = abs(d.files[k]); return normalizeDetail({ ...d, files }); },
