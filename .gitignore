@@ -24,7 +24,8 @@ dist/
 
 # frontend
 frontend/node_modules/
-# design handoff from the design tool (reference only; its prototype runtime is not ours to publish)
-design_handoff_*/
+# design files and handoffs from the design tool (reference only, not published)
+/design*
+*.dc.html
 # the built web app is committed so the Python server works without a JS toolchain
 !resonance/web/dist/
