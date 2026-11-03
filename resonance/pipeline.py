@@ -215,6 +215,8 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
     frame_rate = (prep.timestamps.size - 1) / (prep.timestamps[-1] - prep.timestamps[0]) if prep.is_vfr else fs
     try:
         cfg = MagnifyConfig.around(peak.freq_hz, frame_rate, alpha=opts.alpha)
+        if not cfg.low_hz <= peak.freq_hz <= cfg.high_hz:  # band clipped below the peak by the frame rate
+            raise ValueError
     except ValueError:  # above what the frames that actually arrived can carry: show it unmagnified
         cfg = None
         prep.warnings.append(f"{peak.freq_hz:.1f} Hz is too fast to magnify at {frame_rate:.0f} frames per second; the video is not magnified")
