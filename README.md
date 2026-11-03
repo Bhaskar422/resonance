@@ -36,9 +36,10 @@ All code in this repository was written during the hackathon. The git history is
 | Diagnosis | `resonance/diagnose.py`, `resonance/audio.py` | Muse Spark 1.3 strict-schema fault report from measurements, video, spectrum, key frame and manual; Muse Spark 1.2 listens to the soundtrack; manual citations verified against the PDF |
 | Fix visualization | `resonance/visualize.py` | Muse Image edits of the real key frame: where to act, and the fixed state |
 | Rescan after fix | `resonance/compare.py` | Before/after amplitude at the fault frequency and harmonics, verdict, Muse Spark check against the diagnosis's prediction |
-| Web app | `resonance/server.py`, `resonance/web/index.html` | Upload, live progress, all results, rescan comparison |
+| Web API | `resonance/server.py` | Upload, background jobs with per-stage progress, runs, files, rescan comparison, cost ledger |
+| Web app | `frontend/` (built into `resonance/web/dist/`), `scripts/export_sample.py` | React + Tailwind: marketing site, dashboard, machines, guided analysis, run report, certificate of fix, recording guide, usage & cost, settings |
 | API probes | `scripts/probe_*.py` | Print raw API responses to verify schemas before relying on them |
-| Tests | `tests/` | 48 tests, all offline |
+| Tests | `tests/` | 50 tests, all offline |
 
 ## Setup
 
@@ -69,8 +70,23 @@ uv run resonance visualize out/<run>
 uv run resonance compare out/<before-run> out/<after-run>
 
 # Or do everything in the browser
-uv run resonance serve        # http://127.0.0.1:8000
+uv run resonance serve        # site at http://127.0.0.1:8000, workspace at /app
 ```
+
+### Web app
+
+The built app is committed in `resonance/web/dist/`, so `resonance serve` needs no JavaScript
+toolchain. To change it, edit `frontend/` and rebuild with [Bun](https://bun.sh):
+
+```bash
+cd frontend
+bun install
+bun run dev      # http://localhost:5173, proxies /api and /files to resonance serve on :8000
+bun run build    # writes resonance/web/dist
+```
+
+The workspace starts in **Live** mode (your runs from `out/`). Settings → Data source switches to
+**Sample** mode, which shows labelled sample and demo data without a backend.
 
 Each run writes `out/<run>/`:
 
@@ -126,6 +142,10 @@ uv run python scripts/probe_spark_video.py out/<run>/side_by_side.mp4 out/<run>/
 | FastAPI, Starlette | Web API | MIT, BSD-3-Clause |
 | Uvicorn | Web server | BSD-3-Clause |
 | python-multipart | Upload parsing | Apache-2.0 |
+| React, React DOM | Web app UI | MIT |
+| Vite, @vitejs/plugin-react | Web app build | MIT |
+| Tailwind CSS | Web app styling | MIT |
+| [IBM Plex Sans and Mono](https://github.com/IBM/plex) | Web app typefaces (loaded from Google Fonts) | SIL Open Font License 1.1 |
 | FFmpeg | Video probing and decoding (external binary, not distributed) | LGPL/GPL |
 
 Methods implemented from the literature (our own code, no reference implementations used):
