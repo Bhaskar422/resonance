@@ -15,7 +15,9 @@ def client(tmp_path, monkeypatch):
     clip = make_vibrating_clip(duration_s=1.0)
     src = write_video(tmp_path / "clip.mp4", clip.frames, clip.fps, crf=0)
     analyze(src, AnalyzeOptions(out_root=tmp_path, run_name="r1", mask_array=clip.target_mask))
-    return TestClient(server.app)
+    c = TestClient(server.app)
+    c.post("/api/auth/signup", json={"email": "admin@example.com", "password": "correct horse"})
+    return c
 
 
 def test_index_and_run_listing(client):

@@ -8,6 +8,12 @@ original single-page app is served instead.
 One background worker runs jobs one at a time (analysis is CPU-heavy, and it keeps API spend
 predictable). Every run lives in out/<run>/ exactly as the CLI writes it, so CLI and web
 runs are interchangeable.
+
+Everything under /api and /files needs an account (resonance/auth.py): a session cookie from
+the website, or `Authorization: Bearer rsn_...` from the CLI and the companion app. Each user
+sees their own runs; runs nobody owns (made with the CLI on this machine) are shared with
+everyone as examples, and the first account (the admin) sees everything. RESONANCE_AUTH=off
+turns accounts off for a private single-user install.
 """
 
 from __future__ import annotations
@@ -24,10 +30,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+from resonance import auth as acct
+from resonance import oauth
 
 OUT = Path("out")
 WEB = Path(__file__).parent / "web"
@@ -49,6 +58,7 @@ class Job:
     run: str | None = None
     done: list[str] = field(default_factory=lambda: ["upload"])
     error: str | None = None
+    owner: str | None = None
     started: float = field(default_factory=time.time)
     finished: float | None = None
 
@@ -58,15 +68,74 @@ _jobs: dict[str, Job] = {}
 _lock = threading.Lock()
 _pool = ThreadPoolExecutor(max_workers=1)
 
+# ---------------------------------------------------------------------------
+# Accounts
+# ---------------------------------------------------------------------------
+
+COOKIE = "resonance_session"
+STATE_COOKIE = "resonance_oauth"
+LOCAL_USER = {"id": "local", "email": "local@localhost", "name": "Local", "avatar": None, "admin": 1, "password": None}
+_accounts: acct.Accounts | None = None
+_devices = acct.DeviceLogins()
+_states = oauth.States()
+
+
+def accounts() -> acct.Accounts:
+    global _accounts
+    path = OUT / "accounts.db"
+    if _accounts is None or _accounts.path != path:
+        _accounts = acct.Accounts(path)
+    return _accounts
+
+
+def auth_off() -> bool:
+    return os.environ.get("RESONANCE_AUTH", "on").strip().lower() == "off"
+
+
+def optional_user(request: Request) -> dict | None:
+    if auth_off():
+        return LOCAL_USER
+    header = request.headers.get("authorization", "")
+    if header.lower().startswith("bearer "):
+        return accounts().token_user(header[7:].strip())
+    return accounts().session_user(request.cookies.get(COOKIE))
+
+
+def current_user(request: Request) -> dict:
+    user = optional_user(request)
+    if user is None:
+        raise HTTPException(401, "sign in first")
+    return user
+
+
+def _owner(run: str) -> str | None:
+    return None if auth_off() else accounts().owners().get(run)
+
+
+def _visible(user: dict, run: str, owners: dict[str, str] | None = None) -> bool:
+    if user["admin"]:
+        return True
+    owner = (owners if owners is not None else accounts().owners()).get(run)
+    return owner is None or owner == user["id"]
+
+
+def _own(user: dict, run: str) -> bool:
+    return bool(user["admin"]) or _owner(run) == user["id"]
+
 
 def _safe_name(name: str) -> str:
     stem = re.sub(r"[^\w.-]+", "_", Path(name or "upload").name)[:80]
     return stem or "upload"
 
 
-def _run_dir(run: str) -> Path:
+def _run_dir(run: str, user: dict | None = None, write: bool = False) -> Path:
+    """The run's folder, if it exists and this user may see it (or change it, with write)."""
     if not RUN_NAME.match(run) or not (OUT / run / "report.json").exists():
         raise HTTPException(404, "no such run")
+    if user is not None and not _visible(user, run):
+        raise HTTPException(404, "no such run")
+    if user is not None and write and not _own(user, run):
+        raise HTTPException(403, "this is a shared example run; analyse your own clip to diagnose it")
     return OUT / run
 
 
@@ -105,10 +174,12 @@ def run_created(run_dir: Path) -> float:
         return (run_dir / "report.json").stat().st_mtime
 
 
-def _summary(run_dir: Path) -> dict:
+def _summary(run_dir: Path, owner: str | None = None, user: dict | None = None) -> dict:
     r = json.loads((run_dir / "report.json").read_text())
     dx = _read(run_dir / "diagnosis.json")
     return {
+        "mine": bool(user and owner == user["id"]),
+        "shared": owner is None,
         "run": r["run"],
         "created": run_created(run_dir),
         "input": Path(r["input"]).name,
@@ -151,6 +222,8 @@ def _work(job: Job, video: Path, form: dict) -> None:
             on_stage=lambda done: _finish_stage(job, done, nxt.get(done, done)),
         )
         result = analyze(video, opts)
+        if job.owner and job.owner != LOCAL_USER["id"]:
+            accounts().set_owner(result["run"], job.owner)
         _set(job, run=result["run"])
         run_dir = OUT / result["run"]
         if form["diagnose"]:
@@ -205,12 +278,14 @@ MODEL_NAMES = {"sam": "SAM 3.1", "muse-spark": "Muse Spark", "muse-image": "Muse
 
 
 @app.get("/api/costs")
-def costs() -> list[dict]:
-    """Every logged model call, newest first, from the cost ledger."""
+def costs(user: dict = Depends(current_user)) -> list[dict]:
+    """Logged model calls, newest first, from the cost ledger: every call for the admin, the
+    calls for their own runs for everyone else."""
     from datetime import datetime
 
     ledger = OUT / "costs.jsonl"
     rows = []
+    owners = {} if user["admin"] else accounts().owners()
     for line in ledger.read_text().splitlines() if ledger.exists() else []:
         try:
             e = json.loads(line)
@@ -218,6 +293,8 @@ def costs() -> list[dict]:
             continue
         model = next((v for k, v in MODEL_NAMES.items() if e.get("model", "").startswith(k)), e.get("model"))
         run = (e.get("run") or "").split(":")[0] or None
+        if not user["admin"] and (run is None or owners.get(run) != user["id"]):
+            continue
         rows.append({
             "time": datetime.fromisoformat(e["ts"]).timestamp(),
             "model": model,
@@ -229,14 +306,15 @@ def costs() -> list[dict]:
 
 
 @app.get("/api/runs")
-def list_runs() -> list[dict]:
-    runs = [d for d in OUT.glob("*") if d.is_dir() and (d / "report.json").exists() and (d / "key_frame.png").exists()]
-    return sorted((_summary(d) for d in runs), key=lambda r: r["created"], reverse=True)
+def list_runs(user: dict = Depends(current_user)) -> list[dict]:
+    owners = {} if auth_off() else accounts().owners()
+    runs = [d for d in OUT.glob("*") if d.is_dir() and (d / "report.json").exists() and (d / "key_frame.png").exists() and _visible(user, d.name, owners)]
+    return sorted((_summary(d, owners.get(d.name), user) for d in runs), key=lambda r: r["created"], reverse=True)
 
 
 @app.get("/api/runs/{run}")
-def get_run(run: str) -> dict:
-    d = _run_dir(run)
+def get_run(run: str, user: dict = Depends(current_user)) -> dict:
+    d = _run_dir(run, user)
     return {
         "report": _read(d / "report.json"),
         "diagnosis": _read(d / "diagnosis.json"),
@@ -248,10 +326,10 @@ def get_run(run: str) -> dict:
 
 
 @app.get("/files/{run}/{name}")
-def get_file(run: str, name: str) -> FileResponse:
+def get_file(run: str, name: str, user: dict = Depends(current_user)) -> FileResponse:
     if name not in SERVED_FILES:
         raise HTTPException(404, "not served")
-    path = _run_dir(run) / name
+    path = _run_dir(run, user) / name
     if not path.exists():
         raise HTTPException(404, "not found")
     return FileResponse(path)
@@ -268,8 +346,9 @@ async def start_analysis(
     visualize: bool = Form(True),
     accel: UploadFile | None = File(None),
     manual: UploadFile | None = File(None),
+    user: dict = Depends(current_user),
 ) -> dict:
-    job = Job(id=uuid.uuid4().hex[:12])
+    job = Job(id=uuid.uuid4().hex[:12], owner=user["id"])
     up = OUT / "uploads" / job.id
     up.mkdir(parents=True, exist_ok=True)
 
@@ -293,9 +372,9 @@ async def start_analysis(
 
 
 @app.get("/api/jobs/{job_id}")
-def job_status(job_id: str) -> dict:
+def job_status(job_id: str, user: dict = Depends(current_user)) -> dict:
     job = _jobs.get(job_id)
-    if job is None:
+    if job is None or not (user["admin"] or job.owner == user["id"]):
         raise HTTPException(404, "no such job")
     with _lock:
         d = asdict(job)
@@ -332,10 +411,11 @@ async def diagnose_run(
     machine: str = Form(""),
     visualize: bool = Form(True),
     manual: UploadFile | None = File(None),
+    user: dict = Depends(current_user),
 ) -> dict:
     """Diagnose an already-measured run (Muse Spark), then optionally show the fix (Muse Image)."""
-    run_dir = _run_dir(run)
-    job = Job(id=uuid.uuid4().hex[:12], run=run, stage="diagnose", done=[])
+    run_dir = _run_dir(run, user, write=True)
+    job = Job(id=uuid.uuid4().hex[:12], run=run, stage="diagnose", done=[], owner=user["id"])
     manual_path = None
     if manual is not None and manual.filename:
         up = OUT / "uploads" / job.id
@@ -350,11 +430,202 @@ async def diagnose_run(
 
 
 @app.post("/api/compare")
-def compare(req: CompareRequest) -> dict:
+def compare(req: CompareRequest, user: dict = Depends(current_user)) -> dict:
     from resonance.compare import compare_runs
 
-    before, after = _run_dir(req.before), _run_dir(req.after)
+    before, after = _run_dir(req.before, user), _run_dir(req.after, user, write=True)
     if before == after:
         raise HTTPException(400, "pick two different runs")
     result = compare_runs(before, after, ask_spark=req.spark)
     return {"result": result, "plot": f"/files/{after.name}/compare.png"}
+
+
+# ---------------------------------------------------------------------------
+# Account endpoints
+# ---------------------------------------------------------------------------
+
+
+class Credentials(BaseModel):
+    email: str
+    password: str
+    name: str | None = None
+
+
+class TokenRequest(BaseModel):
+    name: str = "token"
+
+
+class DeviceStart(BaseModel):
+    name: str = "Resonance CLI"
+
+
+class DeviceCode(BaseModel):
+    code: str
+
+
+def _public_base(request: Request) -> str:
+    return (os.environ.get("RESONANCE_PUBLIC_URL") or str(request.base_url)).rstrip("/")
+
+
+def _signed_in(request: Request, user: dict, response: Response) -> dict:
+    response.set_cookie(
+        COOKIE, accounts().new_session(user["id"]), max_age=acct.SESSION_DAYS * 86400,
+        httponly=True, samesite="lax", secure=request.url.scheme == "https", path="/",
+    )
+    return _me(user)
+
+
+def _me(user: dict) -> dict:
+    providers = [] if user["id"] == LOCAL_USER["id"] else accounts().providers(user["id"])
+    return {**acct.public(user), "providers": providers, "auth": not auth_off()}
+
+
+def _fail(e: Exception, status: int = 400) -> HTTPException:
+    return HTTPException(429 if "too many" in str(e) else status, str(e))
+
+
+@app.get("/api/auth/config")
+def auth_config() -> dict:
+    """Which ways to sign in this server offers."""
+    return {"required": not auth_off(), "password": True, "providers": oauth.configured()}
+
+
+@app.get("/api/me")
+def me(user: dict = Depends(current_user)) -> dict:
+    return _me(user)
+
+
+@app.post("/api/auth/signup")
+def sign_up(body: Credentials, request: Request, response: Response) -> dict:
+    try:
+        user = accounts().sign_up(body.email, body.password, body.name)
+    except acct.AuthError as e:
+        raise _fail(e) from None
+    return _signed_in(request, user, response)
+
+
+@app.post("/api/auth/signin")
+def sign_in(body: Credentials, request: Request, response: Response) -> dict:
+    try:
+        user = accounts().sign_in(body.email, body.password)
+    except acct.AuthError as e:
+        raise _fail(e, 401) from None
+    return _signed_in(request, user, response)
+
+
+@app.post("/api/auth/signout")
+def sign_out(request: Request, response: Response) -> dict:
+    if not auth_off():
+        accounts().end_session(request.cookies.get(COOKIE))
+    response.delete_cookie(COOKIE, path="/")
+    return {"ok": True}
+
+
+@app.post("/api/auth/token")
+def password_token(body: Credentials) -> dict:
+    """Email and password -> an access token, for the companion app's sign-in screen."""
+    try:
+        user = accounts().sign_in(body.email, body.password)
+    except acct.AuthError as e:
+        raise _fail(e, 401) from None
+    raw, info = accounts().new_token(user["id"], body.name or "Companion app")
+    return {"token": raw, "info": info, "user": _me(user)}
+
+
+@app.get("/api/auth/{provider}/start")
+def oauth_start(provider: str, request: Request, next: str = "/app") -> RedirectResponse:
+    if provider not in ("github", "google"):
+        raise HTTPException(404, "unknown provider")
+    if not next.startswith("/") or next.startswith("//"):
+        next = "/app"
+    try:
+        state, verifier = _states.new(provider, next)
+        url = oauth.authorize_url(provider, f"{_public_base(request)}/api/auth/{provider}/callback", state, verifier)
+    except oauth.OAuthError as e:
+        raise HTTPException(400, str(e)) from None
+    resp = RedirectResponse(url, status_code=302)
+    resp.set_cookie(STATE_COOKIE, state, max_age=oauth.STATE_TTL, httponly=True, samesite="lax", secure=request.url.scheme == "https", path="/")
+    return resp
+
+
+@app.get("/api/auth/{provider}/callback")
+def oauth_callback(provider: str, request: Request, code: str = "", state: str = "", error: str = "") -> RedirectResponse:
+    from urllib.parse import quote
+
+    def back(msg: str) -> RedirectResponse:
+        return RedirectResponse(f"/app?auth_error={quote(msg)}", status_code=302)
+
+    if error:
+        return back("sign-in was cancelled" if error == "access_denied" else f"{provider} said: {error}")
+    try:
+        if not state or request.cookies.get(STATE_COOKIE) != state:
+            raise oauth.OAuthError("this sign-in did not start in this browser; try again")
+        entry = _states.take(state, provider)
+        who = oauth.identity(provider, code, f"{_public_base(request)}/api/auth/{provider}/callback", entry["verifier"])
+        user = accounts().sign_in_with(who.provider, who.subject, who.email, who.verified, who.name, who.avatar)
+    except (oauth.OAuthError, acct.AuthError) as e:
+        return back(str(e))
+    except Exception as e:  # network trouble talking to the provider
+        traceback.print_exc()
+        return back(f"could not reach {provider} ({type(e).__name__})")
+    resp = RedirectResponse(entry["next"], status_code=302)
+    _signed_in(request, user, resp)
+    resp.delete_cookie(STATE_COOKIE, path="/")
+    return resp
+
+
+@app.get("/api/tokens")
+def list_tokens(user: dict = Depends(current_user)) -> list[dict]:
+    return accounts().tokens(user["id"])
+
+
+@app.post("/api/tokens")
+def create_token(body: TokenRequest, user: dict = Depends(current_user)) -> dict:
+    """A new access token for the CLI or the companion app. The token is shown only once."""
+    if auth_off():
+        raise HTTPException(400, "accounts are off on this server; no token is needed")
+    raw, info = accounts().new_token(user["id"], body.name)
+    return {"token": raw, "info": info}
+
+
+@app.delete("/api/tokens/{token_id}")
+def revoke_token(token_id: str, user: dict = Depends(current_user)) -> dict:
+    if not accounts().revoke(user["id"], token_id):
+        raise HTTPException(404, "no such token")
+    return {"ok": True}
+
+
+@app.post("/api/cli/device")
+def device_start(body: DeviceStart, request: Request) -> dict:
+    """Step 1 of `resonance login`: a code for the user to approve on the website."""
+    d = _devices.start(body.name.strip()[:60] or "Resonance CLI")
+    return {**d, "interval": 2, "verification_uri": f"{_public_base(request)}/app#/link?code={d['user_code']}"}
+
+
+@app.get("/api/cli/device/{user_code}")
+def device_info(user_code: str, user: dict = Depends(current_user)) -> dict:
+    entry = _devices.lookup(user_code)
+    if entry is None:
+        raise HTTPException(404, "this code expired or was already used; run resonance login again")
+    return {"user_code": entry["user_code"], "name": entry["name"], "approved": entry["token"] is not None}
+
+
+@app.post("/api/cli/approve")
+def device_approve(body: DeviceCode, user: dict = Depends(current_user)) -> dict:
+    entry = _devices.lookup(body.code)
+    if entry is None or entry["token"] is not None:
+        raise HTTPException(404, "this code expired or was already used; run resonance login again")
+    raw, _ = accounts().new_token(user["id"], entry["name"])
+    _devices.approve(body.code, raw, _me(user))
+    return {"ok": True}
+
+
+@app.post("/api/cli/poll")
+def device_poll(body: DeviceCode) -> JSONResponse:
+    """Step 2: the CLI asks until the user approves; the token is handed out once."""
+    got = _devices.poll(body.code)
+    if got is None:
+        return JSONResponse({"status": "expired"}, status_code=404)
+    if not got:
+        return JSONResponse({"status": "pending"}, status_code=202)
+    return JSONResponse({"status": "approved", **got})
