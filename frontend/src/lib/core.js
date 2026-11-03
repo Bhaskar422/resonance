@@ -464,7 +464,7 @@ export function createApp(opts = {}) {
     if (x.manual) fd.append('manual', x.manual);
     Object.assign(x, { running: true, stage: 'diagnose', error: null, t0: performance.now() }); startTick(); emit();
     try { const { job } = await api.diagnoseRun(id, fd); x.jobId = job; pollDx(id); }
-    catch (e) { Object.assign(x, { running: false, error: 'Could not start the diagnosis. ' + (e.message || '') }); emit(); }
+    catch (e) { const old = /not found/i.test(e.message || ''); Object.assign(x, { running: false, error: old ? 'The server is running an older version without this feature. Restart it (resonance serve) and try again.' : 'Could not start the diagnosis. ' + (e.message || '') }); emit(); }
   }
   function pollDx(id) {
     const x = dxOf(id);
