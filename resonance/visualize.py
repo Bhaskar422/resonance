@@ -94,6 +94,10 @@ def render_fix(run_dir: str | Path) -> dict:
     run_dir = Path(run_dir)
     report = json.loads((run_dir / "report.json").read_text())
     dx = json.loads((run_dir / "diagnosis.json").read_text())["diagnosis"]
+    if dx["primary_fault"] == "none_detected":  # nothing to repair, so no images to pay for
+        result = {"skipped": "no fault found", "api_cost_usd": 0.0}
+        (run_dir / "visualize.json").write_text(json.dumps(result, indent=2))
+        return result
     key = _key_frame(run_dir, report)
     ledger = CostLedger(Path(report.get("api_cost_ledger", "out/costs.jsonl")), run_id=report["run"] + ":visualize")
     client = get_client()

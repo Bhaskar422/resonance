@@ -75,3 +75,16 @@ def test_action_labels_are_shortened_at_word_boundaries():
     assert short_label("fan hub / blade assembly - inspect and balance") == "fan hub / blade assembly"
     assert short_label("the left rear mounting bolt of the motor bracket near the base") == "the left rear mounting bolt of"
     assert short_label("blade 2") == "blade 2"
+
+
+def test_no_fault_means_no_fix_images(tmp_path, monkeypatch):
+    import json
+
+    from resonance import visualize
+
+    monkeypatch.setattr(visualize, "get_client", lambda: (_ for _ in ()).throw(AssertionError("no API call expected")))
+    (tmp_path / "report.json").write_text(json.dumps({"run": "r", "input": "x.mov"}))
+    (tmp_path / "diagnosis.json").write_text(json.dumps({"diagnosis": {"primary_fault": "none_detected"}}))
+    result = visualize.render_fix(tmp_path)
+    assert result["skipped"] == "no fault found" and result["api_cost_usd"] == 0.0
+    assert not (tmp_path / "fixed_state.png").exists()

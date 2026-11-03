@@ -510,7 +510,68 @@ function FixPlan({ r }) {
   );
 }
 
+// Muse Spark found nothing wrong: no repair steps to draw, nothing to prove with a rescan.
+function NoFixNeeded({ r }) {
+  return (
+    <>
+      <Divider label="§ RESULT" right="Muse Spark" />
+      <AutoGrid min={420}>
+        <section className={CARD}>
+          <div className="flex items-start gap-3.5 px-4 py-4 border-b border-line">
+            <span className="grid place-items-center size-8 shrink-0 rounded-full border-2 border-sev-normal text-sev-normal font-semibold" aria-hidden="true">✓</span>
+            <div className="flex flex-col gap-1">
+              <h3 className="m-0 text-[17px] font-semibold text-sev-normal">No fix needed</h3>
+              <span className="text-[13.5px] text-fg-2 leading-[1.5]">No fault found ({r.conf} confident).{r.vizSkipped ? ' The fix images were skipped, so nothing was spent on them.' : ''}</span>
+            </div>
+          </div>
+          {r.actions.length > 0 && (
+            <>
+              <div className="px-4 pt-3.5"><h4 className={HEAD}>RECOMMENDED</h4></div>
+              <ol className="m-0 p-0 list-none">
+                {r.actions.map(a => (
+                  <li key={a.n} className="flex gap-3.5 px-4 py-3 border-b border-line last:border-b-0">
+                    <span className="font-mono text-[16px] font-semibold leading-none text-fg-3" aria-hidden="true">{a.n}</span>
+                    <span className="text-[14px] leading-[1.5]">{a.step}</span>
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+          {r.expect && (
+            <div className="px-4 py-3.5 flex flex-col gap-1.5 border-t border-line">
+              <span className={LBL}>WHAT A FUTURE SCAN SHOULD SHOW</span>
+              <span className="text-[13.5px] leading-[1.5]">{r.expect}</span>
+            </div>
+          )}
+        </section>
+        {r.hasCites && (
+          <section className={CARD}>
+            <div className="px-4 py-3 border-b border-line"><h3 className={HEAD}>MANUAL CITATIONS</h3></div>
+            {r.cites.map((c, i) => (
+              <div key={i} className="px-4 py-3.5 border-b border-line flex flex-col gap-2">
+                <span className="font-mono text-[10.5px] text-fg-2">{c.badge} · {c.page} · {c.found}</span>
+                <blockquote className="m-0 text-[14px] leading-[1.55] pl-3 border-l-2 border-line-2">“{c.quote}”</blockquote>
+              </div>
+            ))}
+          </section>
+        )}
+      </AutoGrid>
+    </>
+  );
+}
+
 function RescanCta({ r }) {
+  if (r.noFault) {
+    return (
+      <section data-noprint="" className="flex flex-wrap items-center justify-between gap-4 p-[22px] border border-line rounded-[4px] bg-panel">
+        <div>
+          <div className="text-[17px] font-semibold">Healthy today. Scan again later to track it.</div>
+          <div className="mt-1 text-fg-2 text-[13.5px]">A later scan from the same spot shows whether the vibration starts to grow.</div>
+        </div>
+        <a href={r.rescanHref} className="h-10 inline-flex items-center px-4 border border-line-2 rounded-[3px] text-fg text-[13px] no-underline hover:no-underline">Scan again</a>
+      </section>
+    );
+  }
   return (
     <section data-noprint="" className="flex flex-wrap items-center justify-between gap-4 p-[22px] border border-signal rounded-[4px] bg-[color-mix(in_oklch,var(--signal)_7%,var(--panel))]">
       <div>
@@ -551,7 +612,7 @@ export default function Report({ v }) {
           {r.diag && (
             <div className="flex flex-col gap-4">
               <Diagnosis r={r} />
-              <FixPlan r={r} />
+              {r.noFault ? <NoFixNeeded r={r} /> : <FixPlan r={r} />}
             </div>
           )}
           <RescanCta r={r} />
