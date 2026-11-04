@@ -223,6 +223,11 @@ def _work(job: Job, video: Path, form: dict) -> None:
         )
         result = analyze(video, opts)
         if job.owner and job.owner != LOCAL_USER["id"]:
+            if accounts().user(job.owner) is None:  # the account was deleted while this ran
+                shutil.rmtree(OUT / result["run"], ignore_errors=True)
+                shutil.rmtree(video.parent, ignore_errors=True)
+                _set(job, status="error", error="the account was deleted", finished=time.time())
+                return
             accounts().set_owner(result["run"], job.owner)
         _set(job, run=result["run"])
         run_dir = OUT / result["run"]
@@ -252,6 +257,16 @@ def index() -> str:
 @app.get("/app", response_class=HTMLResponse)
 def workspace() -> str:
     return _page("app.html")
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy() -> str:
+    return _page("privacy.html")
+
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms() -> str:
+    return _page("terms.html")
 
 
 for _static in ("assets", "sample"):  # built JS/CSS, and the sample run shown on the site
@@ -493,6 +508,29 @@ def auth_config() -> dict:
 @app.get("/api/me")
 def me(user: dict = Depends(current_user)) -> dict:
     return _me(user)
+
+
+@app.delete("/api/me")
+def delete_me(response: Response, user: dict = Depends(current_user)) -> dict:
+    """Delete the account, its runs and the clips and files uploaded for them."""
+    if auth_off():
+        raise HTTPException(400, "accounts are off on this server")
+    runs = accounts().delete_user(user["id"])
+    uploads = (OUT / "uploads").resolve()
+    for run in runs:
+        run_dir = OUT / run
+        if not RUN_NAME.match(run) or not run_dir.is_dir():
+            continue
+        try:
+            report = json.loads((run_dir / "report.json").read_text())
+        except (OSError, ValueError):
+            report = {}
+        src = Path(str(report.get("input") or "")).resolve()  # uploads/<job>/ holds the clip, accelerometer file and manual
+        if src.parent.parent == uploads:
+            shutil.rmtree(src.parent, ignore_errors=True)
+        shutil.rmtree(run_dir, ignore_errors=True)
+    response.delete_cookie(COOKIE, path="/")
+    return {"ok": True, "runs_deleted": len(runs)}
 
 
 @app.post("/api/auth/signup")

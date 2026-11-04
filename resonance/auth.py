@@ -181,6 +181,14 @@ class Accounts:
         self._q("insert into identities (provider, subject, user_id) values (?, ?, ?)", (provider, subject, user["id"]))
         return self.user(user["id"])
 
+    def delete_user(self, user_id: str) -> list[str]:
+        """Erase the account and everything that signs in as it; returns the runs it owned."""
+        runs = [r["run"] for r in self._q("select run from run_owners where user_id = ?", (user_id,))]
+        for table in ("run_owners", "tokens", "sessions", "identities"):
+            self._q(f"delete from {table} where user_id = ?", (user_id,))
+        self._q("delete from users where id = ?", (user_id,))
+        return runs
+
     def providers(self, user_id: str) -> list[str]:
         return [r["provider"] for r in self._q("select provider from identities where user_id = ?", (user_id,))]
 

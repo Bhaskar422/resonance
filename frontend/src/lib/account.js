@@ -53,6 +53,7 @@ export const signIn = (email, password) => act(async () => { await post('/api/au
 export const signUp = (email, password, name) => act(async () => { await post('/api/auth/signup', { email, password, name }); reload(); });
 export const withProvider = p => { location.href = `/api/auth/${p}/start?next=${encodeURIComponent('/app' + (location.hash || ''))}`; };
 export const signOut = () => act(async () => { await post('/api/auth/signout'); reload(); });
+export const deleteAccount = () => act(async () => { await req('/api/me', { method: 'DELETE' }); reload(); });  // back to the sign-in page
 
 export const loadTokens = () => act(async () => { A.tokens = await req('/api/tokens'); });
 export const createToken = name => act(async () => { A.made = await post('/api/tokens', { name: name || 'token' }); A.tokens = await req('/api/tokens'); });

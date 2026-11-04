@@ -100,6 +100,9 @@ machine), which appear as shared examples. The sample data is open without an ac
 
   A provider sign-in joins an existing account only through a verified email address.
 - **Access tokens** for scripts: Settings > Access tokens, sent as `Authorization: Bearer rsn_...`.
+- **Delete account** (Settings) erases the account, its sign-ins, tokens, runs and uploaded files.
+- **Privacy policy and terms** are served at `/privacy` and `/terms`, the URLs a Google consent
+  screen asks for. The square logo for consent screens is in `brand/`, made by `scripts/make_logo.py`.
 - `RESONANCE_AUTH=off` turns accounts off for a private, single-user install.
 
 ### CLI with your account

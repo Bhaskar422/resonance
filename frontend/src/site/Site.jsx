@@ -264,7 +264,7 @@ function Closing() {
   );
 }
 
-function Footer() {
+export function Footer() {
   return (
     <footer className="border-t border-line">
       <div className={`${WRAP} px-6 py-7 flex flex-wrap gap-x-8 gap-y-4 justify-between font-mono text-[12px] leading-[1.6] text-fg-3`}>
@@ -272,7 +272,9 @@ function Footer() {
         <span className="flex flex-wrap gap-[18px]">
           <a href={`${APP}#/guide`} className="text-fg-2">Recording guide</a>
           <a href={`${APP}#/dashboard`} className="text-fg-2">Workspace</a>
-          <a href="#faq" className="text-fg-2">FAQ</a>
+          <a href="/#faq" className="text-fg-2">FAQ</a>
+          <a href="/privacy" className="text-fg-2">Privacy</a>
+          <a href="/terms" className="text-fg-2">Terms</a>
         </span>
         <span>Models: SAM 3.1 · Muse Spark · Muse Image</span>
       </div>

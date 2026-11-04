@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Logo, Panel } from '../components/ui.jsx';
 import {
-  approveLink, createToken, dismissToken, exploreSample, linkCode, loadLink, loadTokens, revokeToken,
+  approveLink, createToken, deleteAccount, dismissToken, exploreSample, linkCode, loadLink, loadTokens, revokeToken,
   signIn, signOut, signUp, withProvider,
 } from '../lib/account.js';
 
@@ -73,6 +73,7 @@ export function AuthPage({ a }) {
             {up ? 'Already have an account? Sign in' : 'New here? Create an account'}</button>
           <button type="button" onClick={exploreSample} className="border-0 bg-transparent p-0 text-fg-2">Explore the sample data →</button>
         </div>
+        <p className="m-0 text-[12px] text-fg-3">By continuing you agree to the <a href="/terms" className="text-fg-2 underline">Terms</a> and <a href="/privacy" className="text-fg-2 underline">Privacy Policy</a>.</p>
       </div>
     </Frame>
   );
@@ -197,5 +198,24 @@ export function AccountSettings({ a }) {
         {a.error && <div className="px-4 py-3"><p className="m-0 text-[13px] text-sev-stop">{a.error}</p></div>}
       </Panel>
     </>
+  );
+}
+
+export function DeleteAccount({ a }) {
+  const [typed, setTyped] = useState('');
+  const me = a.me;
+  if (!me || !me.auth) return null;
+  return (
+    <Panel label="DELETE ACCOUNT" bodyClass="px-4 py-3.5 flex flex-col gap-3">
+      <p className="m-0 text-[13px] text-fg-2">
+        Erases your account, its sign-in links, sessions and access tokens, every run you created, and the clips and files you uploaded for them.
+        This cannot be undone. See the <a href="/privacy" className="text-accent">privacy policy</a>.
+      </p>
+      <form onSubmit={e => { e.preventDefault(); if (typed.trim().toLowerCase() === me.email) deleteAccount(); }} className="flex flex-wrap gap-2">
+        <input value={typed} onChange={e => setTyped(e.target.value)} placeholder={`Type ${me.email} to confirm`} aria-label="Type your email to confirm" autoComplete="off"
+          className="h-[34px] px-3 bg-bg border border-line-2 rounded-[3px] text-fg text-[13px] flex-1 min-w-[220px]" />
+        <Button small type="submit" disabled={a.busy || typed.trim().toLowerCase() !== me.email} className="text-sev-stop">Delete my account</Button>
+      </form>
+    </Panel>
   );
 }

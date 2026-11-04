@@ -1,5 +1,5 @@
 import { PageHeader, Panel, Switch } from '../../components/ui.jsx';
-import { AccountSettings } from '../Account.jsx';
+import { AccountSettings, DeleteAccount } from '../Account.jsx';
 
 const ROW = 'flex items-center gap-3.5 px-4 py-3 border-b border-line last:border-b-0';
 
@@ -53,6 +53,8 @@ export default function Settings({ v, a }) {
         <div className={`${ROW} flex-wrap`}><span className="flex-1 min-w-[140px]">Frequency units</span><Options opts={s.units} label="Frequency units" /></div>
         <div className={ROW}><span className="flex-1">Amplitude units</span><span className="font-mono text-[12px] font-medium leading-none text-fg-2 text-right">px (pixels of displacement)</span></div>
       </Panel>
+
+      {a && <DeleteAccount a={a} />}
     </div>
   );
 }

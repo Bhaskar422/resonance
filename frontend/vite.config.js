@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-// Two pages: the marketing site (/) and the workspace (/app). FastAPI serves the build;
+// Pages: the marketing site (/), the workspace (/app), and /privacy and /terms. FastAPI serves the build;
 // in development the API and run files are proxied to it.
 const backend = 'http://127.0.0.1:8000';
 export default defineConfig({
@@ -12,7 +12,12 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, '../resonance/web/dist'),
     emptyOutDir: true,
-    rollupOptions: { input: { site: resolve(__dirname, 'index.html'), app: resolve(__dirname, 'app.html') } },
+    rollupOptions: {
+      input: {
+        site: resolve(__dirname, 'index.html'), app: resolve(__dirname, 'app.html'),
+        privacy: resolve(__dirname, 'privacy.html'), terms: resolve(__dirname, 'terms.html'),
+      },
+    },
   },
   server: { proxy: { '/api': backend, '/files': backend } },
 });

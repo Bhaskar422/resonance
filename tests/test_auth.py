@@ -95,6 +95,29 @@ def test_access_tokens_for_the_cli_and_app(out):
     assert cli.get("/api/me", headers={"Authorization": f"Bearer {app_login['token']}"}).status_code == 200
 
 
+def test_deleting_an_account_erases_its_runs_and_uploads(out):
+    ada, bob = _user("ada@example.com"), _user("bob@example.com")
+    ids = {e: c.get("/api/me").json()["id"] for e, c in (("ada", ada), ("bob", bob))}
+    token = ada.post("/api/tokens", json={"name": "laptop"}).json()["token"]
+    for who in ("ada", "bob"):
+        _run(out, f"{who}-run")
+        upload = out / "uploads" / f"{who}-job"
+        upload.mkdir(parents=True)
+        (upload / "clip.mov").write_bytes(b"mov")
+        report = json.loads((out / f"{who}-run" / "report.json").read_text())
+        (out / f"{who}-run" / "report.json").write_text(json.dumps({**report, "input": str(upload / "clip.mov")}))
+        server.accounts().set_owner(f"{who}-run", ids[who])
+
+    r = ada.delete("/api/me")
+    assert r.status_code == 200 and r.json()["runs_deleted"] == 1
+    assert not (out / "ada-run").exists() and not (out / "uploads" / "ada-job").exists()
+    assert (out / "bob-run").exists() and (out / "uploads" / "bob-job").exists() and (out / "shared-example").exists()
+    assert ada.get("/api/me").status_code == 401
+    assert TestClient(server.app).get("/api/me", headers={"Authorization": f"Bearer {token}"}).status_code == 401
+    assert TestClient(server.app).post("/api/auth/signin", json={"email": "ada@example.com", "password": "correct horse"}).status_code == 401
+    assert _user("ada@example.com").get("/api/me").json()["admin"] == 0  # the email can sign up again, as a new account
+
+
 def test_cli_login_through_the_browser(out):
     browser = _user("ada@example.com")
     cli = TestClient(server.app)
@@ -128,7 +151,7 @@ def test_provider_sign_in_links_by_verified_email_only(tmp_path):
 
 
 def test_oauth_is_offered_only_when_configured(out, monkeypatch):
-    for k in ("RESONANCE_GITHUB_CLIENT_ID", "RESONANCE_GITHUB_CLIENT_SECRET", "RESONANCE_GOOGLE_CLIENT_ID", "RESONANCE_GOOGLE_CLIENT_SECRET"):
+    for k in ("RESONANCE_GITHUB_CLIENT_ID", "RESONANCE_GITHUB_CLIENT_SECRET", "RESONANCE_GOOGLE_CLIENT_ID", "RESONANCE_GOOGLE_CLIENT_SECRET", "RESONANCE_PUBLIC_URL"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)
     c = TestClient(server.app)
