@@ -10,7 +10,7 @@ Entry for the **Meta Global AI Developer Hackathon** (Indie Developer track).
 
 <sub>Real footage: a desk fan with putty on one blade. SAM 3.1 outlines the fan; Resonance measures 16.42 Hz from the pixels (a phone accelerometer on the fan agrees) and magnifies it ×20.</sub>
 
-- **Demo video (3 min):** _link added after upload_
+- **Demo video (2:59, 4K):** [youtu.be/QbcBVQ4usqk](https://youtu.be/QbcBVQ4usqk)
 - **Live site:** [resonance.mindgears.dev](https://resonance.mindgears.dev): sign up, then try an example clip
 - **Code:** this repository, Apache-2.0
 
@@ -195,7 +195,8 @@ get HTTP 429 with a plain message; `/api/me` reports each account's usage.
 
 ## The demo video
 
-Made in code, not edited by hand: every number on screen comes from the runs above.
+[Watch on YouTube](https://youtu.be/QbcBVQ4usqk) (2:59, 4K). Made in code, not edited by hand: every
+number on screen comes from the runs above.
 
 - Style and production tools: the "Visual Investigation" style from
   [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) (MIT, styles CC BY 4.0).
