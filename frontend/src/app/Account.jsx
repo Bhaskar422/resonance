@@ -5,13 +5,13 @@ import {
   signIn, signOut, signUp, withProvider,
 } from '../lib/account.js';
 
-const INPUT = 'h-10 px-3 bg-bg border border-line-2 rounded-[3px] text-fg text-[14px] min-w-0 w-full';
+const INPUT = 'h-10 px-3 bg-bg border border-line-2 rounded-ctl text-fg text-[14px] min-w-0 w-full';
 const LABEL = 'font-mono text-[10.5px] font-semibold leading-none tracking-[.12em] text-fg-3';
 const when = t => t ? new Date(t * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'never';
 
 function Frame({ children }) {
   return (
-    <div className="min-h-screen bg-bg text-fg font-sans text-[14px] flex flex-col">
+    <div className="min-h-screen bg-bg wash text-fg font-sans text-[14px] flex flex-col">
       <header className="h-[60px] shrink-0 flex items-center border-b border-line" style={{ paddingInline: 'var(--pad)' }}><Logo href="/" /></header>
       <main className="flex-1 grid place-items-center px-4 py-10">{children}</main>
     </div>
@@ -21,7 +21,7 @@ function Frame({ children }) {
 function Alert({ children }) {
   if (!children) return null;
   return (
-    <div role="alert" className="px-3.5 py-2.5 border border-sev-stop rounded-[4px] text-[13px]" style={{ background: 'color-mix(in oklch, var(--sev-stop) 10%, transparent)' }}>{children}</div>
+    <div role="alert" className="px-3.5 py-2.5 border border-sev-stop rounded-card text-[13px]" style={{ background: 'color-mix(in oklch, var(--sev-stop) 10%, transparent)' }}>{children}</div>
   );
 }
 
@@ -124,7 +124,7 @@ export function AccountMenu({ a }) {
   const me = a.me;
   if (!me) {
     return <button type="button" onClick={() => { try { localStorage.setItem('resonance:dataMode', '"live"'); } catch (e) {} location.reload(); }}
-      className="h-[34px] px-3 shrink-0 border border-line-2 rounded-[3px] bg-transparent text-[13px] text-fg whitespace-nowrap">Sign in</button>;
+      className="h-[34px] px-3 shrink-0 border border-line-2 rounded-ctl bg-transparent text-[13px] text-fg whitespace-nowrap">Sign in</button>;
   }
   const initial = (me.name || me.email || '?')[0].toUpperCase();
   return (
@@ -134,14 +134,14 @@ export function AccountMenu({ a }) {
         {me.avatar ? <img src={me.avatar} alt="" className="size-full object-cover" referrerPolicy="no-referrer" /> : initial}
       </button>
       {open && (
-        <div className="absolute right-0 top-10 z-40 w-[min(260px,86vw)] p-1.5 bg-panel border border-line-2 rounded-[4px] shadow-[0_18px_40px_rgba(0,0,0,.35)]" onMouseLeave={() => setOpen(false)}>
+        <div className="absolute right-0 top-10 z-40 w-[min(260px,86vw)] p-1.5 bg-panel border border-line-2 rounded-card shadow-pop" onMouseLeave={() => setOpen(false)}>
           <div className="px-2.5 py-2 border-b border-line mb-1">
             <div className="text-[13.5px] font-semibold truncate">{me.name}</div>
             <div className="font-mono text-[11.5px] text-fg-3 truncate">{me.email}</div>
             {!!me.admin && <div className="mt-1 font-mono text-[10.5px] tracking-[.1em] text-signal">ADMIN</div>}
           </div>
-          <a href="#/settings" onClick={() => setOpen(false)} className="block px-2.5 py-2 rounded-[3px] text-fg text-[13px] no-underline hover:no-underline hover:bg-panel-2">Account &amp; access tokens</a>
-          {me.auth && <button type="button" onClick={signOut} className="w-full text-left px-2.5 py-2 rounded-[3px] border-0 bg-transparent text-fg text-[13px] hover:bg-panel-2">Sign out</button>}
+          <a href="#/settings" onClick={() => setOpen(false)} className="block px-2.5 py-2 rounded-ctl text-fg text-[13px] no-underline hover:no-underline hover:bg-panel-2">Account &amp; access tokens</a>
+          {me.auth && <button type="button" onClick={signOut} className="w-full text-left px-2.5 py-2 rounded-ctl border-0 bg-transparent text-fg text-[13px] hover:bg-panel-2">Sign out</button>}
         </div>
       )}
     </div>
@@ -173,14 +173,14 @@ export function AccountSettings({ a }) {
           For scripts, make a token here and pass it as <code className="font-mono text-[12.5px] text-fg">--token</code> or <code className="font-mono text-[12.5px] text-fg">RESONANCE_TOKEN</code>.
         </p>
         <form onSubmit={e => { e.preventDefault(); createToken(name); setName(''); }} className="flex flex-wrap gap-2 px-4 py-3.5 border-b border-line">
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Name, e.g. workshop laptop" aria-label="Token name" className="h-[34px] px-3 bg-bg border border-line-2 rounded-[3px] text-fg text-[13px] flex-1 min-w-[180px]" />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Name, e.g. workshop laptop" aria-label="Token name" className="h-[34px] px-3 bg-bg border border-line-2 rounded-ctl text-fg text-[13px] flex-1 min-w-[180px]" />
           <Button small primary type="submit" disabled={a.busy}>Create token</Button>
         </form>
         {a.made && (
           <div className="px-4 py-3.5 border-b border-line flex flex-col gap-2" style={{ background: 'color-mix(in oklch, var(--signal) 8%, transparent)' }}>
             <div className="text-[13px]"><b className="font-semibold">Copy this token now.</b> It is shown only once.</div>
             <div className="flex flex-wrap gap-2 items-center">
-              <code className="flex-1 min-w-0 px-2.5 py-2 bg-bg border border-line-2 rounded-[3px] font-mono text-[12.5px] [overflow-wrap:anywhere]">{a.made.token}</code>
+              <code className="flex-1 min-w-0 px-2.5 py-2 bg-bg border border-line-2 rounded-ctl font-mono text-[12.5px] [overflow-wrap:anywhere]">{a.made.token}</code>
               <Button small onClick={() => { navigator.clipboard && navigator.clipboard.writeText(a.made.token); }}>Copy</Button>
               <Button small onClick={dismissToken}>Done</Button>
             </div>
@@ -213,7 +213,7 @@ export function DeleteAccount({ a }) {
       </p>
       <form onSubmit={e => { e.preventDefault(); if (typed.trim().toLowerCase() === me.email) deleteAccount(); }} className="flex flex-wrap gap-2">
         <input value={typed} onChange={e => setTyped(e.target.value)} placeholder={`Type ${me.email} to confirm`} aria-label="Type your email to confirm" autoComplete="off"
-          className="h-[34px] px-3 bg-bg border border-line-2 rounded-[3px] text-fg text-[13px] flex-1 min-w-[220px]" />
+          className="h-[34px] px-3 bg-bg border border-line-2 rounded-ctl text-fg text-[13px] flex-1 min-w-[220px]" />
         <Button small type="submit" disabled={a.busy || typed.trim().toLowerCase() !== me.email} className="text-sev-stop">Delete my account</Button>
       </form>
     </Panel>

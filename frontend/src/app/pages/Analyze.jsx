@@ -2,9 +2,9 @@ import { Eyebrow, Switch, tint } from '../../components/ui.jsx';
 
 const H2 = 'm-0 text-[18px] font-semibold';
 const FIELD_LABEL = 'font-mono text-[10.5px] font-medium leading-none tracking-[.1em] text-fg-3';
-const INPUT = 'h-10 px-3 bg-bg border border-line-2 rounded-[3px] text-fg min-w-0';
-const PRIMARY = 'h-10 px-[18px] bg-accent text-on-accent border-0 rounded-[3px] font-semibold disabled:opacity-45 disabled:cursor-not-allowed';
-const SECONDARY = 'border border-line-2 bg-transparent rounded-[3px]';
+const INPUT = 'h-10 px-3 bg-bg border border-line-2 rounded-ctl text-fg min-w-0';
+const PRIMARY = 'h-10 px-[18px] bg-accent text-on-accent border-0 rounded-ctl font-semibold disabled:opacity-45 disabled:cursor-not-allowed';
+const SECONDARY = 'border border-line-2 bg-transparent rounded-ctl';
 const GRID = min => ({ gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${min}px), 1fr))` });
 
 export default function Analyze({ v }) {
@@ -18,7 +18,7 @@ export default function Analyze({ v }) {
       </div>
 
       {az.isRescan && (
-        <div className="flex items-center gap-3.5 p-3 border border-signal rounded-[4px]">
+        <div className="flex items-center gap-3.5 p-3 border border-signal rounded-card">
           <div className="w-24 aspect-[4/3] shrink-0 border border-line opacity-80" style={{ background: az.rescanBg }} />
           <div className="min-w-0">
             <div className="font-semibold">Rescan of {az.machine}</div>
@@ -31,7 +31,7 @@ export default function Analyze({ v }) {
         {az.steps.map(s => (
           <li key={s.n} className="flex-[1_1_120px]">
             <button type="button" onClick={s.go} aria-current={s.on ? 'step' : undefined}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 border rounded-[3px] text-left"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 border rounded-ctl text-left"
               style={{ borderColor: s.bd, background: s.bg, color: s.fg }}>
               <span className="font-mono text-[11px] font-semibold leading-none">{s.mark}</span>
               <span className="text-[13px] font-medium">{s.label}</span>
@@ -40,7 +40,7 @@ export default function Analyze({ v }) {
         ))}
       </ol>
 
-      <section className="bg-panel border border-line rounded-[4px] p-[22px] flex flex-col gap-[18px] min-w-0">
+      <section className="card p-[22px] flex flex-col gap-[18px] min-w-0">
         {az.s1 && <StepVideo az={az} />}
         {az.s2 && <StepDescribe az={az} />}
         {az.s3 && <StepEvidence az={az} />}
@@ -69,7 +69,7 @@ function StepVideo({ az }) {
       {az.noFile && (
         <>
           <div onDrop={az.onDrop} onDragOver={az.onDragOver} onDragLeave={az.onDragLeave}
-            className="relative px-5 py-12 border-[1.5px] border-dashed rounded-[4px] text-center flex flex-col gap-2 items-center"
+            className="relative px-5 py-12 border-[1.5px] border-dashed rounded-card text-center flex flex-col gap-2 items-center"
             style={{ borderColor: az.dropBd, background: az.dropBg }}>
             <span className="font-mono text-[28px] font-medium leading-none text-signal" aria-hidden="true">⤒</span>
             <span className="font-semibold">Drop a video here, or click to browse</span>
@@ -83,7 +83,7 @@ function StepVideo({ az }) {
       )}
       {az.hasFile && (
         <div className="grid gap-4 items-start" style={GRID(280)}>
-          <div className="relative aspect-video stripe border border-line rounded-[2px] overflow-hidden">
+          <div className="relative aspect-video stripe border border-line rounded-chip overflow-hidden">
             {az.hasPreview && (
               <video src={az.previewUrl} muted playsInline preload="metadata" onLoadedMetadata={az.onMeta}
                 className="block w-full h-full object-cover" aria-label="First frame of the clip" />
@@ -122,12 +122,12 @@ function StepDescribe({ az }) {
           <div className="flex gap-1.5">
             {az.fpsOpts.map(o => (
               <button key={o.label} type="button" onClick={o.onClick} aria-pressed={!!o.on}
-                className="flex-1 min-w-0 h-10 border rounded-[3px] font-mono text-[12.5px] font-medium leading-none"
+                className="flex-1 min-w-0 h-10 border rounded-ctl font-mono text-[12.5px] font-medium leading-none"
                 style={{ borderColor: o.bd, background: o.bg, color: o.fg }}>{o.label}</button>
             ))}
           </div>
           <input type="number" min="1" value={auto ? '' : az.fps} placeholder="auto" onChange={az.onFps} aria-label="Custom fps"
-            className="h-9 px-3 bg-bg border border-line-2 rounded-[3px] text-fg font-mono min-w-0" />
+            className="h-9 px-3 bg-bg border border-line-2 rounded-ctl text-fg font-mono min-w-0" />
         </div>
         <label className="flex flex-col gap-1.5">
           <span className={FIELD_LABEL}>DURATION · S *</span>
@@ -141,13 +141,13 @@ function StepDescribe({ az }) {
 
 function EvidenceCard({ code, color, title, desc, accept, chooseLabel, has, name, onChoose, onClear, onSample, isSample }) {
   return (
-    <div className="relative p-[18px] border border-line-2 rounded-[4px] flex flex-col gap-2 min-w-0">
+    <div className="relative p-[18px] border border-line-2 rounded-card flex flex-col gap-2 min-w-0">
       <span className="font-mono text-[10.5px] font-semibold leading-none tracking-[.1em]" style={{ color }}>{code}</span>
       <span className="font-semibold">{title}</span>
       <span className="text-[13px] text-fg-2">{desc}</span>
       {!has && (
         <div className="flex gap-2 flex-wrap">
-          <label className="relative h-[34px] inline-flex items-center px-3 border border-line-2 rounded-[3px] cursor-pointer text-[13px] focus-within:outline-2 focus-within:outline-focus focus-within:outline-offset-2">
+          <label className="relative h-[34px] inline-flex items-center px-3 border border-line-2 rounded-ctl cursor-pointer text-[13px] focus-within:outline-2 focus-within:outline-focus focus-within:outline-offset-2">
             {chooseLabel}
             <input type="file" accept={accept} onChange={onChoose} aria-label={`${chooseLabel}: ${title}`} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
           </label>
@@ -186,7 +186,7 @@ function StepEvidence({ az }) {
 
 function OptionRow({ title, meta, desc, sw, label, op, dashed = false, small = false, disabled = false }) {
   return (
-    <div className={`flex gap-3.5 items-center p-3.5 border ${dashed ? 'border-dashed' : ''} border-line-2 rounded-[4px]`} style={op ? { opacity: op } : undefined}>
+    <div className={`flex gap-3.5 items-center p-3.5 border ${dashed ? 'border-dashed' : ''} border-line-2 rounded-card`} style={op ? { opacity: op } : undefined}>
       <div className="flex-1 min-w-0">
         <div className={`font-semibold ${small ? 'text-[13.5px]' : ''}`}>
           {title}
@@ -225,20 +225,20 @@ function StepRun({ az }) {
         <h2 className={H2}>{az.current}</h2>
         <span className="font-mono text-[13px] font-medium leading-none text-fg-2 tabular">{az.pct} · {az.elapsed}</span>
       </div>
-      <div className="h-1 bg-line rounded-[2px] overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={az.pctN} aria-label="Analysis progress">
+      <div className="h-1 bg-line rounded-chip overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={az.pctN} aria-label="Analysis progress">
         <div className="h-full bg-signal transition-[width] duration-300" style={{ width: az.pct }} />
       </div>
       {az.hasError && (
-        <div role="alert" className="flex flex-wrap gap-3 items-center p-3.5 border border-sev-stop rounded-[4px]" style={{ background: tint('var(--sev-stop)', 9) }}>
+        <div role="alert" className="flex flex-wrap gap-3 items-center p-3.5 border border-sev-stop rounded-card" style={{ background: tint('var(--sev-stop)', 9) }}>
           <div className="flex-1 min-w-[220px]">
             <div className="font-semibold">{az.errStage}&nbsp;failed</div>
             <div className="text-[13px] text-fg-2">{az.error}</div>
           </div>
-          <button type="button" onClick={az.retry} className="h-9 px-3.5 bg-accent text-on-accent border-0 rounded-[3px] font-semibold">Retry from {az.errStage}</button>
+          <button type="button" onClick={az.retry} className="h-9 px-3.5 bg-accent text-on-accent border-0 rounded-ctl font-semibold">Retry from {az.errStage}</button>
           <button type="button" onClick={az.reset} className={`h-9 px-3.5 ${SECONDARY}`}>Start over</button>
         </div>
       )}
-      <div className="border border-line rounded-[4px]">
+      <div className="border border-line rounded-card">
         {az.stages.map(g => (
           <div key={g.key} className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-3.5 py-[11px] border-b border-line last:border-b-0" style={{ opacity: g.op }}>
             <span className={`size-2.5 rounded-full shrink-0 ${g.isRun ? 'animate-pulse' : ''}`} style={{ background: g.color }} />

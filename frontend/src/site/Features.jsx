@@ -1,7 +1,7 @@
 // CH 04 · Capabilities: six rows of copy beside a product panel, fed by the sample desk-fan run.
 
 const ROW = 'grid grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] gap-8 items-center';
-const PANEL = 'border border-line-2 rounded-[4px]';
+const PANEL = 'border border-line-2 rounded-card';
 
 function Copy({ tag, title, children, extra }) {
   return (
@@ -62,20 +62,20 @@ function DiagnosePanel({ fan }) {
       {fan.faults.map(f => (
         <div key={f.name} className="grid grid-cols-[minmax(0,150px)_1fr_44px] gap-3 items-center text-[13.5px]">
           <span>{f.name}</span>
-          <span className="h-1.5 bg-line rounded-[3px]"><span className="block h-full bg-signal rounded-[3px]" style={{ width: f.w }} /></span>
+          <span className="h-1.5 bg-line rounded-ctl"><span className="block h-full bg-signal rounded-ctl" style={{ width: f.w }} /></span>
           <span className="font-mono text-[12.5px] font-medium leading-none text-right tabular">{f.pct}</span>
         </div>
       ))}
       <div className="h-px my-1 bg-line" />
       {fan.sel && fan.sel.sup.map(e => (
         <div key={e.detail} className="flex gap-2.5 items-start text-[13px] leading-[1.45]">
-          <span className="shrink-0 px-1.5 py-[3px] border rounded-[2px] font-mono text-[10px] font-semibold leading-[1.1]" style={{ borderColor: e.srcColor, color: e.srcColor }}>{e.srcCode}</span>
+          <span className="shrink-0 px-1.5 py-[3px] border rounded-chip font-mono text-[10px] font-semibold leading-[1.1]" style={{ borderColor: e.srcColor, color: e.srcColor }}>{e.srcCode}</span>
           <span className="text-fg-2">{e.detail}</span>
         </div>
       ))}
       {fan.sel && fan.sel.con.map(c => (
         <div key={c.detail} className="flex gap-2.5 text-[13px]">
-          <span className="shrink-0 px-1.5 py-[3px] border border-sev-act rounded-[2px] text-sev-act font-mono text-[10px] font-semibold leading-[1.1]">AGAINST</span>
+          <span className="shrink-0 px-1.5 py-[3px] border border-sev-act rounded-chip text-sev-act font-mono text-[10px] font-semibold leading-[1.1]">AGAINST</span>
           <span className="text-fg-2">{c.detail}</span>
         </div>
       ))}
@@ -105,7 +105,7 @@ function FixPanel({ fan }) {
 
 function CertPanel({ cmp }) {
   return (
-    <div className="flex flex-col gap-3 p-5 bg-bg border border-sev-normal rounded-[4px]">
+    <div className="flex flex-col gap-3 p-5 bg-bg border border-sev-normal rounded-card">
       <div className="flex justify-between gap-3 font-mono text-[10.5px] font-medium leading-none tracking-[.12em] text-fg-3"><span>CERTIFICATE OF FIX</span><span>{cmp.cert}</span></div>
       <div className="flex flex-wrap items-baseline gap-3.5">
         <span className="font-mono text-[56px] font-medium leading-none tracking-[-.03em] tabular">{cmp.big}</span>
@@ -142,9 +142,9 @@ export default function Features({ v }) {
           <Copy tag="02 · MEASURE" title="A real spectrum, not a guess."
             extra={
               <div className="flex flex-wrap gap-2 font-mono text-[12px] font-medium leading-none tabular">
-                <span className="px-[9px] py-1.5 border border-line-2 rounded-[2px]">{fan.hz}&nbsp;Hz</span>
-                <span className="px-[9px] py-1.5 border border-line-2 rounded-[2px]">SNR {fan.snr}</span>
-                {fan.acc && <span className="px-[9px] py-1.5 border rounded-[2px]" style={{ borderColor: fan.acc.color, color: fan.acc.color }}>{fan.acc.agrees ? '✓' : '!'} {fan.acc.label}</span>}
+                <span className="px-[9px] py-1.5 border border-line-2 rounded-chip">{fan.hz}&nbsp;Hz</span>
+                <span className="px-[9px] py-1.5 border border-line-2 rounded-chip">SNR {fan.snr}</span>
+                {fan.acc && <span className="px-[9px] py-1.5 border rounded-chip" style={{ borderColor: fan.acc.color, color: fan.acc.color }}>{fan.acc.agrees ? '✓' : '!'} {fan.acc.label}</span>}
               </div>
             }>
             Frequency in Hz and CPM, amplitude in pixels, harmonics 1×–6× with signal-to-noise. Attach a phyphox accelerometer recording and the two are cross-checked.

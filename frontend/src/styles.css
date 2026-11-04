@@ -3,19 +3,31 @@
 /* Design tokens (Direction A "Instrument"). Dark is the default; light via data-theme. */
 :root {
   --mono: 'IBM Plex Mono', ui-monospace, monospace; --mono-font: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', system-ui, sans-serif;
-  --bg: #0a0d0c; --panel: #0f1312; --panel-2: #151a19; --fg: #e6ece9; --fg-2: #a6b1ad; --fg-3: #75807c; --line: #1f2624; --line-2: #303a37;
-  --accent: #5ef0a0; --on-accent: #03140a; --signal: #5ef0a0; --signal-dim: rgba(94,240,160,.26); --grid: rgba(94,240,160,.06); --ok: #5ef0a0; --focus: #7fe9ff;
-  --sev-normal: #5ee39a; --sev-monitor: #e8c95a; --sev-act: #f59b4c; --sev-stop: #ff6161;
-  --c1: #5ef0a0; --c2: #62d4f0; --c3: #e8c95a; --c4: #ff9f8a; --c5: #b8c4c0;
+  /* Cool blue-slate neutrals; green stays the brand signal, blue/violet carry information. */
+  --bg: #090d11; --panel: #0f151a; --panel-2: #151d23; --fg: #e7edf1; --fg-2: #a9b5bc; --fg-3: #7d8a92; --line: #1e2a31; --line-2: #2f3d46;
+  --accent: #5ef0a0; --on-accent: #03140a; --signal: #5ef0a0; --signal-dim: rgba(94,240,160,.26); --grid: rgba(94,240,160,.06); --ok: #5ef0a0; --focus: #7fc4ff;
+  --info: #7cb4ff; --violet: #b59dff; --link: #8cbcff;
+  --sev-normal: #5ee39a; --sev-monitor: #ecc95c; --sev-act: #f7a052; --sev-stop: #ff6b6b;
+  --c1: #5ef0a0; --c2: #6fb0ff; --c3: #ecc95c; --c4: #b59dff; --c5: #ff8fb3;
   --stripe-a: rgba(255,255,255,.022); --stripe-b: rgba(255,255,255,.05);
+  --head: #12191f;
+  --shadow-card: inset 0 1px 0 rgba(255,255,255,.03), 0 1px 2px rgba(0,0,0,.35), 0 10px 28px -16px rgba(0,0,0,.6);
+  --shadow-pop: 0 18px 40px rgba(0,0,0,.45);
+  --wash-a: rgba(94,240,160,.07); --wash-b: rgba(124,180,255,.085);
+  --r-card: 10px; --r-ctl: 7px; --r-chip: 5px;
   --pad: 28px; --tabpad: 0px;
 }
 :root[data-theme="light"] {
-  --bg: #f1f3f0; --panel: #fbfcfa; --panel-2: #eef1ed; --fg: #0e1412; --fg-2: #45504c; --fg-3: #66716d; --line: #dce1dd; --line-2: #c3cac6;
-  --accent: #0a7a44; --on-accent: #fff; --signal: #0a8a4c; --signal-dim: rgba(10,138,76,.25); --grid: rgba(10,138,76,.07); --ok: #0a8a4c; --focus: #0060c0;
+  --bg: #eef2f5; --panel: #ffffff; --panel-2: #f2f5f8; --fg: #0d1418; --fg-2: #43515a; --fg-3: #5c6a73; --line: #dae1e7; --line-2: #c2ccd4;
+  --accent: #0a7a44; --on-accent: #fff; --signal: #0a8a4c; --signal-dim: rgba(10,138,76,.25); --grid: rgba(10,138,76,.07); --ok: #0a8a4c; --focus: #1f5fd6;
+  --info: #2563d9; --violet: #6d47c8; --link: #1f5bcc;
   --sev-normal: #0f8549; --sev-monitor: #8a6800; --sev-act: #b65200; --sev-stop: #c42424;
-  --c1: #0a8a4c; --c2: #00738f; --c3: #8a6800; --c4: #b8400c; --c5: #66716d;
+  --c1: #0a8a4c; --c2: #2563d9; --c3: #8a6800; --c4: #6d47c8; --c5: #c2416b;
   --stripe-a: rgba(0,0,0,.025); --stripe-b: rgba(0,0,0,.055);
+  --head: #f7f9fb;
+  --shadow-card: 0 1px 2px rgba(16,32,48,.05), 0 6px 18px -10px rgba(16,32,48,.12);
+  --shadow-pop: 0 18px 40px rgba(16,32,48,.16);
+  --wash-a: rgba(10,138,76,.06); --wash-b: rgba(37,99,217,.07);
 }
 @media (max-width: 880px) { :root { --pad: 16px; --tabpad: 84px; } }
 
@@ -26,21 +38,37 @@
   --color-fg: var(--fg); --color-fg-2: var(--fg-2); --color-fg-3: var(--fg-3);
   --color-line: var(--line); --color-line-2: var(--line-2);
   --color-accent: var(--accent); --color-on-accent: var(--on-accent); --color-signal: var(--signal); --color-signal-dim: var(--signal-dim);
-  --color-ok: var(--ok); --color-focus: var(--focus);
+  --color-ok: var(--ok); --color-focus: var(--focus); --color-info: var(--info); --color-violet: var(--violet); --color-link: var(--link);
   --color-sev-normal: var(--sev-normal); --color-sev-monitor: var(--sev-monitor); --color-sev-act: var(--sev-act); --color-sev-stop: var(--sev-stop);
   --color-c1: var(--c1); --color-c2: var(--c2); --color-c3: var(--c3); --color-c4: var(--c4); --color-c5: var(--c5);
+  --radius-card: var(--r-card); --radius-ctl: var(--r-ctl); --radius-chip: var(--r-chip);
+  --shadow-card: var(--shadow-card); --shadow-pop: var(--shadow-pop);
   --breakpoint-desk: 881px;
 }
 
 @layer base {
   html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
-  a { color: var(--accent); text-decoration: none; }
+  a { color: var(--link); text-decoration: none; }
   a:hover { text-decoration: underline; }
   button, input, select, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
   :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 }
 
+/* Cards: one radius, one soft border, one shadow everywhere. */
+@utility card { background-color: var(--panel); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-card); }
+/* Panel header strip, rounded to sit inside its card. */
+@utility panel-head { background: var(--head); border-top-left-radius: calc(var(--r-card) - 1px); border-top-right-radius: calc(var(--r-card) - 1px); }
+/* Coloured top edge plus a faint tint of the same colour; set --edge inline. */
+@utility edge {
+  background-image: linear-gradient(var(--edge), var(--edge)), linear-gradient(to bottom, color-mix(in oklch, var(--edge) 8%, transparent), transparent 75%);
+  background-size: 100% 2px, 100% 100%; background-repeat: no-repeat;
+}
+/* Faint signal/info glow behind the page. */
+@utility wash {
+  background-image: radial-gradient(900px 520px at 100% -8%, var(--wash-b), transparent 70%), radial-gradient(760px 460px at -6% -4%, var(--wash-a), transparent 70%);
+  background-attachment: fixed; background-repeat: no-repeat;
+}
 @utility tabular { font-variant-numeric: tabular-nums; }
 @utility graticule {
   background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
@@ -52,5 +80,6 @@
 
 @media print {
   [data-noprint] { display: none !important; }
-  :root, :root[data-theme="light"] { --bg: #fff; --panel: #fff; --panel-2: #f5f5f5; --fg: #000; --fg-2: #333; --fg-3: #555; --line: #ddd; --line-2: #bbb; --signal: #0a7a44; --accent: #0a7a44; --tabpad: 0px; }
+  :root, :root[data-theme="light"] { --bg: #fff; --panel: #fff; --panel-2: #f5f5f5; --fg: #000; --fg-2: #333; --fg-3: #555; --line: #ddd; --line-2: #bbb; --signal: #0a7a44; --accent: #0a7a44; --link: #1f5bcc; --head: #fff; --shadow-card: none; --tabpad: 0px; }
+  .wash { background-image: none; }
 }

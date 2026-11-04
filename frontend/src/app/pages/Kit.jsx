@@ -2,7 +2,7 @@ import { PageHeader, AutoGrid, SeverityBadge, EvidenceChip, MetricTile, TileGrid
 
 function Card({ title, children }) {
   return (
-    <section className="flex flex-col gap-3 p-4 bg-panel border border-line rounded-[4px] min-w-0">
+    <section className="flex flex-col gap-3 p-4 card min-w-0">
       <h2 className="m-0 font-mono text-[11px] font-medium leading-none tracking-[.12em] text-fg-3">{title}</h2>
       {children}
     </section>
@@ -46,7 +46,7 @@ export default function Kit({ v }) {
 
         <Card title="VERDICT CARD">
           {res ? (
-            <div className="flex items-center gap-4 p-4 border rounded-[4px]" style={{ borderColor: res.color }}>
+            <div className="flex items-center gap-4 p-4 border rounded-card" style={{ borderColor: res.color }}>
               <span className="font-mono text-[36px] font-medium leading-none tabular">{res.big}</span>
               <div className="min-w-0">
                 <div className="font-semibold" style={{ color: res.color }}>{res.label}</div>

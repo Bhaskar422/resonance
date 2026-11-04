@@ -1,7 +1,8 @@
 import { PageHeader, Button, SeverityBadge, AutoGrid } from '../../components/ui.jsx';
 
 const LABEL = 'font-mono text-[10.5px] font-medium leading-none tracking-[.12em] text-fg-3';
-const TILE = 'flex flex-col gap-2.5 p-4 bg-panel border border-line rounded-[4px] min-w-0';
+const TILE = 'edge flex flex-col gap-2.5 p-4 card min-w-0';
+const edge = c => ({ '--edge': c });
 const H2 = 'm-0 font-mono text-[11px] font-medium leading-none tracking-[.12em] text-fg-2';
 const ROW_LINK = 'text-fg no-underline hover:no-underline';
 // Graticule: 4 horizontal bands, 10 vertical divisions.
@@ -9,7 +10,7 @@ const CHART_GRID = '[background-image:linear-gradient(var(--grid)_1px,transparen
 
 function PanelHead({ title, children }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-line">
+    <div className="panel-head flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-line">
       <h2 className={H2}>{title}</h2>
       {children}
     </div>
@@ -59,13 +60,13 @@ export default function Dashboard({ v }) {
       {v.loading && (
         <div role="status" aria-label="Loading runs" className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))]">
           {v.skel.map(k => (
-            <div key={k} className="h-[118px] rounded-[4px] border border-line bg-[linear-gradient(90deg,var(--panel)_0%,var(--panel-2)_50%,var(--panel)_100%)]" />
+            <div key={k} className="h-[118px] rounded-card border border-line bg-[linear-gradient(90deg,var(--panel)_0%,var(--panel-2)_50%,var(--panel)_100%)]" />
           ))}
         </div>
       )}
 
       {v.empty && (
-        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center border border-dashed border-line-2 rounded-[4px]">
+        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center border border-dashed border-line-2 rounded-card">
           <div className="font-mono text-[11px] font-medium leading-none tracking-[.14em] text-fg-3">NO SIGNAL</div>
           <h2 className="m-0 text-[20px] font-semibold">No runs yet</h2>
           <p className="m-0 max-w-[420px] text-fg-2">Film a machine in slow motion for 10 seconds and Resonance will measure, magnify and diagnose it.</p>
@@ -76,12 +77,12 @@ export default function Dashboard({ v }) {
       {v.hasRuns && (
         <>
           <AutoGrid min={210} gap={12}>
-            <div className={TILE}>
+            <div className={TILE} style={edge('var(--info)')}>
               <div className={LABEL}>MACHINES ANALYSED</div>
               <div className="font-mono text-[36px] font-medium leading-none tabular">{dash.machines}</div>
               <div className="text-[12.5px] text-fg-2">{dash.openN}&nbsp;with open issues</div>
             </div>
-            <div className={TILE}>
+            <div className={TILE} style={edge('var(--sev-act)')}>
               <div className={LABEL}>OPEN ISSUES</div>
               <div className="grid grid-cols-3 gap-2">
                 <SevCount n={dash.stop} label="STOP NOW" color="var(--sev-stop)" />
@@ -89,15 +90,15 @@ export default function Dashboard({ v }) {
                 <SevCount n={dash.mon} label="MONITOR" color="var(--sev-monitor)" />
               </div>
             </div>
-            <div className={TILE}>
+            <div className={TILE} style={edge('var(--sev-normal)')}>
               <div className={LABEL}>FIXES VERIFIED</div>
               <div className="font-mono text-[36px] font-medium leading-none tabular text-sev-normal">{dash.fixes}</div>
               <div className="text-[12.5px] text-fg-2">Proven by rescan, not by checklist</div>
             </div>
-            <a href="#/usage" className={`${TILE} text-fg no-underline hover:no-underline`}>
+            <a href="#/usage" className={`${TILE} text-fg no-underline hover:no-underline`} style={edge('var(--violet)')}>
               <div className={LABEL}>API SPEND</div>
               <div className="font-mono text-[36px] font-medium leading-none tabular">{dash.spend}</div>
-              <div className="h-1 bg-line rounded-[2px] overflow-hidden" role="progressbar" aria-label="Budget used"
+              <div className="h-1 bg-line rounded-chip overflow-hidden" role="progressbar" aria-label="Budget used"
                 aria-valuemin={0} aria-valuemax={100} aria-valuenow={parseFloat(dash.budgetPct) || 0}>
                 <div className="h-full bg-signal" style={{ width: v.usage ? v.usage.barW : '0%' }} />
               </div>
@@ -106,7 +107,7 @@ export default function Dashboard({ v }) {
           </AutoGrid>
 
           <AutoGrid min={440} gap={16}>
-            <section className="bg-panel border border-line rounded-[4px] min-w-0">
+            <section className="card min-w-0">
               <PanelHead title="NEEDS ATTENTION"><span className="font-mono text-[11px] leading-none text-fg-3">by severity</span></PanelHead>
               {dash.allClear && <div className="px-4 py-8 text-center text-fg-2">All machines are within normal limits.</div>}
               {(dash.attention || []).map(m => (
@@ -122,7 +123,7 @@ export default function Dashboard({ v }) {
               ))}
             </section>
 
-            <section className="flex flex-col bg-panel border border-line rounded-[4px] min-w-0">
+            <section className="flex flex-col card min-w-0">
               <PanelHead title="AMPLITUDE @ 1× · PX"><span className="font-mono text-[11px] leading-none text-fg-3">{chart.from} → today</span></PanelHead>
               <AmplitudeChart chart={chart} />
               <div className="flex flex-wrap gap-x-4 gap-y-2 px-4 pt-2.5 pb-3.5">
@@ -135,7 +136,7 @@ export default function Dashboard({ v }) {
             </section>
           </AutoGrid>
 
-          <section className="bg-panel border border-line rounded-[4px] min-w-0">
+          <section className="card min-w-0">
             <PanelHead title="RECENT RUNS"><a href="#/runs" className="font-mono text-[11px] font-medium leading-none">All runs →</a></PanelHead>
             <div className="relative py-2 pr-4 pl-[34px]">
               <div className="absolute left-[21px] top-[18px] bottom-[18px] w-px bg-line-2" />
@@ -149,8 +150,8 @@ export default function Dashboard({ v }) {
                   </span>
                   <span className="w-24 font-mono text-[13px] font-medium leading-none tabular">{r.freq}</span>
                   <span className="w-[92px] font-mono text-[12px] leading-none text-fg-2 tabular">{r.amp}</span>
-                  <span className="px-2 py-1 border rounded-[2px] font-mono text-[10px] font-semibold leading-none tracking-[.08em] uppercase whitespace-nowrap"
-                    style={{ borderColor: r.sevColor, color: r.sevColor }}>{r.sevLabel}</span>
+                  <span className="px-2 py-1 border rounded-chip font-mono text-[10px] font-semibold leading-none tracking-[.08em] uppercase whitespace-nowrap"
+                    style={{ borderColor: `color-mix(in oklch, ${r.sevColor} 55%, transparent)`, color: r.sevColor, background: `color-mix(in oklch, ${r.sevColor} 14%, transparent)` }}>{r.sevLabel}</span>
                 </a>
               ))}
             </div>

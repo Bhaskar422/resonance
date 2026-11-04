@@ -13,19 +13,19 @@ export default function Usage({ v }) {
     <div className="flex flex-col gap-[18px]">
       <PageHeader eyebrow="CH 07 · METER" title="Usage & cost">
         {u.mock && (
-          <span className="px-[9px] py-[5px] border border-dashed border-sev-monitor rounded-[2px] text-sev-monitor font-mono text-[11px] font-medium leading-[1.3]">
+          <span className="px-[9px] py-[5px] border border-dashed border-sev-monitor rounded-chip text-sev-monitor font-mono text-[11px] font-medium leading-[1.3]">
             Mock ledger · /api/costs not built yet
           </span>
         )}
       </PageHeader>
 
-      <section className="flex flex-col gap-3.5 p-5 bg-panel border border-line rounded-[4px] min-w-0">
+      <section className="flex flex-col gap-3.5 p-5 card min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <span className="font-mono text-[44px] font-medium leading-none tabular">{u.total}</span>
           <span className="font-mono text-[14px] leading-none text-fg-3">of {u.budget}&nbsp;budget</span>
           <span className="ml-auto font-mono text-[12.5px] leading-[1.4] text-fg-2">{u.remaining}&nbsp;left · ≈ {u.left}&nbsp;more analyses at {u.avg}&nbsp;avg</span>
         </div>
-        <div className="h-2.5 bg-line rounded-[5px] overflow-hidden">
+        <div className="h-2.5 bg-line rounded-card overflow-hidden">
           <div className="h-full bg-signal" style={{ width: u.barW }} />
         </div>
         <div className="font-mono text-[11px] leading-none text-fg-3">{u.pct}&nbsp;used</div>
@@ -39,7 +39,7 @@ export default function Usage({ v }) {
                 <span><b className="font-semibold">{b.model}</b> <span className="text-[12px] text-fg-3">{b.use}</span></span>
                 <span className="font-mono text-[13px] font-medium leading-none tabular">{b.cost}</span>
               </div>
-              <div className="h-1.5 bg-line rounded-[3px]"><div className="h-full bg-signal rounded-[3px]" style={{ width: b.w }} /></div>
+              <div className="h-1.5 bg-line rounded-ctl"><div className="h-full bg-signal rounded-ctl" style={{ width: b.w }} /></div>
               <span className="font-mono text-[11px] leading-none text-fg-3">{b.calls}</span>
             </div>
           ))}
@@ -49,7 +49,7 @@ export default function Usage({ v }) {
           {u.loading ? <Loading n={5} /> : u.byRun.map(b => (
             <a key={b.run} href={b.href} className={`grid grid-cols-[minmax(0,1fr)_90px_60px] items-center gap-3 px-4 py-2.5 text-fg text-[13px] no-underline hover:no-underline hover:bg-panel-2 ${ROW}`}>
               <span className="truncate">{b.title} <span className="font-mono text-[11px] leading-none text-fg-3">{b.date}</span></span>
-              <span className="h-[5px] bg-line rounded-[3px]"><span className="block h-full bg-c2 rounded-[3px]" style={{ width: b.w }} /></span>
+              <span className="h-[5px] bg-line rounded-ctl"><span className="block h-full bg-c2 rounded-ctl" style={{ width: b.w }} /></span>
               <span className="font-mono text-[12px] font-medium leading-none text-right tabular">{b.cost}</span>
             </a>
           ))}

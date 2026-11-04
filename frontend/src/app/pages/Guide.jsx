@@ -16,7 +16,7 @@ function Fps() {
 function Tripod() {
   return (
     <div className={`${ART} relative ${GRID20}`}>
-      <div className="absolute left-1/2 top-[18px] w-[34px] h-14 -ml-[17px] border-2 border-signal rounded-[6px]" />
+      <div className="absolute left-1/2 top-[18px] w-[34px] h-14 -ml-[17px] border-2 border-signal rounded-card" />
       <div className="absolute left-1/2 top-[74px] w-0.5 h-[34px] bg-fg-2" />
       <div className="absolute left-1/2 top-[76px] w-0.5 h-9 bg-fg-2 origin-top rotate-[28deg]" />
       <div className="absolute left-1/2 top-[76px] w-0.5 h-9 bg-fg-2 origin-top -rotate-[28deg]" />
@@ -75,7 +75,7 @@ const CARDS = [
   [NoZoom, 'No zoom', 'Digital zoom amplifies sensor noise. Move the phone closer instead.'],
 ];
 
-const SECTION = 'bg-panel border border-line rounded-[4px] p-[18px] min-w-0';
+const SECTION = 'card p-[18px] min-w-0';
 const H2 = 'mt-0 mb-3 font-mono text-[11px] font-semibold leading-none tracking-[.12em]';
 const LIST = 'm-0 pl-[18px] flex flex-col gap-2 text-[13.5px] leading-[1.5] text-fg-2';
 const B = ({ children }) => <b className="text-fg">{children}</b>;
@@ -87,7 +87,7 @@ export default function Guide() {
 
       <AutoGrid min={300} gap={12} fill>
         {CARDS.map(([Art, title, body], i) => (
-          <div key={title} className="bg-panel border border-line rounded-[4px] overflow-hidden min-w-0">
+          <div key={title} className="card overflow-hidden min-w-0">
             <Art />
             <div className="px-4 py-3.5">
               <div className="font-mono text-[11px] font-semibold leading-none text-fg-3">{String(i + 1).padStart(2, '0')}</div>

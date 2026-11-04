@@ -9,7 +9,7 @@ const WRAP = 'max-w-[1240px] mx-auto';
 const EYEBROW = 'font-mono text-[11.5px] font-medium leading-none tracking-[.16em]';
 const H2 = 'text-[length:clamp(30px,4vw,44px)] tracking-[-.025em] font-semibold';
 const ANCHOR = 'scroll-mt-[96px] desk:scroll-mt-[64px]';
-const PRIMARY = 'inline-flex items-center bg-accent text-on-accent rounded-[3px] font-semibold no-underline hover:no-underline whitespace-nowrap';
+const PRIMARY = 'inline-flex items-center bg-accent text-on-accent rounded-ctl font-semibold no-underline hover:no-underline whitespace-nowrap';
 const APP = '/app';
 
 function SectionHead({ eyebrow, title, color = 'text-signal' }) {
@@ -23,7 +23,7 @@ function SectionHead({ eyebrow, title, color = 'text-signal' }) {
 
 function Header({ v }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-[color-mix(in_oklch,var(--bg)_86%,transparent)] backdrop-blur-[12px]">
+    <header className="sticky top-0 z-30 border-b border-line bg-[color-mix(in_srgb,var(--bg)_86%,transparent)] backdrop-blur-[12px]">
       <div className={`${WRAP} flex flex-wrap items-center gap-x-3 gap-y-2.5 px-4 py-3 desk:flex-nowrap desk:gap-5 desk:px-6`}>
         <Logo href="#top" />
         <nav aria-label="Sections" className="order-last w-full flex flex-wrap gap-x-[18px] gap-y-1 font-mono text-[12px] font-medium leading-none tracking-[.06em] desk:order-none desk:w-auto desk:flex-1 desk:justify-center">
@@ -33,7 +33,7 @@ function Header({ v }) {
           <a href="#faq" className="text-fg-2">FAQ</a>
         </nav>
         <div className="ml-auto flex items-center gap-3 desk:ml-0 desk:gap-5">
-          <button type="button" onClick={v.toggleTheme} aria-label="Toggle theme" className="size-[34px] border border-line-2 rounded-[3px] bg-transparent text-fg-2">{v.themeIcon}</button>
+          <button type="button" onClick={v.toggleTheme} aria-label="Toggle theme" className="size-[34px] border border-line-2 rounded-ctl bg-transparent text-fg-2">{v.themeIcon}</button>
           <a href={`${APP}#/dashboard`} className={`${PRIMARY} h-9 px-3.5 text-[13px]`}>Open workspace</a>
         </div>
       </div>
@@ -63,13 +63,13 @@ function Hero({ v }) {
           <p className="m-0 text-[18px] leading-[1.55] text-fg-2 text-pretty">Film a fan, pump, motor or compressor in slow motion for 10 seconds. Resonance measures the vibration, magnifies it 20×, and tells you what’s wrong, with the evidence to prove it.</p>
           <div className="flex flex-wrap gap-2.5">
             <a href={`${APP}#/analyze`} className={`${PRIMARY} h-[46px] px-5`}>Analyze a machine</a>
-            <a href={`${APP}#/runs`} className="inline-flex items-center h-[46px] px-5 border border-line-2 rounded-[3px] text-fg no-underline hover:no-underline">See a sample report</a>
+            <a href={`${APP}#/runs`} className="inline-flex items-center h-[46px] px-5 border border-line-2 rounded-ctl text-fg no-underline hover:no-underline">See a sample report</a>
           </div>
         </div>
       </div>
 
       {/* Scope module: always dark, whatever the theme. */}
-      <div className="border border-line-2 rounded-[6px] bg-[#050706] overflow-hidden text-[#e6ece9] [--signal:#5ef0a0] [--signal-dim:rgba(94,240,160,.26)] [--grid:rgba(94,240,160,.07)] [--line-2:#26302d] [--fg-2:#8c9894]">
+      <div className="border border-line-2 rounded-card bg-[#050706] overflow-hidden text-[#e6ece9] [--signal:#5ef0a0] [--signal-dim:rgba(94,240,160,.26)] [--grid:rgba(94,240,160,.07)] [--line-2:#26302d] [--fg-2:#8c9894]">
         <div className="flex flex-wrap justify-between gap-x-5 gap-y-2 px-4 py-2.5 border-b border-[#1c2321] font-mono text-[11px] font-medium leading-[1.4] tracking-[.08em] text-[#75807c]">
           <span><span className="text-[#5ef0a0]">●</span> LIVE · DESK FAN · CH 1</span>
           <span>HOVER THE TRACE TO MAGNIFY ×20</span>
@@ -105,11 +105,11 @@ function Proof() {
           <p className={body}>measured to within <b className="text-fg font-mono">0.001 Hz</b> of ground truth on generated test footage.</p>
         </div>
         <div className="px-6 py-8 border-r border-line">
-          <div className={stat}>−89%</div>
+          <div className={`${stat} text-info`}>−89%</div>
           <p className={body}>vibration after the recommended fix, proven by a rescan from the same spot.</p>
         </div>
         <div className="px-6 py-8">
-          <div className={stat}>≈$0.04</div>
+          <div className={`${stat} text-violet`}>≈$0.04</div>
           <p className={body}>per analysis in model calls. Measurement and magnification run locally for free.</p>
         </div>
       </div>
@@ -131,7 +131,7 @@ function How({ v }) {
         {v.pipe.map(s => (
           <li key={s.n}>
             <button type="button" onClick={s.onClick} aria-pressed={!!s.on}
-              className="w-full h-full text-left flex flex-col gap-2.5 p-4 border rounded-[4px] text-fg transition-[opacity,background-color] duration-[.4s]"
+              className="w-full h-full text-left flex flex-col gap-2.5 p-4 border rounded-card text-fg transition-[opacity,background-color] duration-[.4s]"
               style={{ borderColor: s.bd, background: s.bg, opacity: s.op }}>
               <span className="flex justify-between items-center">
                 <span className="font-mono text-[12px] font-semibold leading-none text-signal">{s.n}</span>
@@ -164,7 +164,7 @@ function Problem({ v }) {
         <h2 className={`m-0 ${H2} text-balance`}>Machines tell you they’re failing. Most people can’t hear it.</h2>
         <p className="m-0 text-[17px] leading-[1.6] text-fg-2">Imbalance, misalignment and looseness show up as vibration weeks before a bearing seizes or a mount cracks. Catching it takes an analyzer that costs thousands of dollars and an analyst trained to read it. So small sites wait for the breakdown, and pay for the downtime.</p>
       </div>
-      <div ref={v.refs.reveal} role="table" aria-label="Pro analyzer compared with Resonance" className="grid grid-cols-2 border border-line-2 rounded-[4px] overflow-hidden">
+      <div ref={v.refs.reveal} role="table" aria-label="Pro analyzer compared with Resonance" className="grid grid-cols-2 border border-line-2 rounded-card overflow-hidden">
         <div role="row" className="contents">
           <div role="columnheader" className={`${head} bg-panel text-fg-3`}>PRO ANALYZER</div>
           <div role="columnheader" className={`${head} border-l bg-[color-mix(in_oklch,var(--signal)_9%,var(--panel))] text-signal`}>RESONANCE</div>
@@ -193,7 +193,7 @@ function Who({ v }) {
   return (
     <section id="who" className={`${ANCHOR} ${WRAP} px-6 pt-[88px] pb-12 flex flex-col gap-7`}>
       <SectionHead eyebrow="CH 05 · OPERATORS" title="Who it’s for" />
-      <div ref={v.refs.reveal} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-px bg-line border border-line rounded-[4px] overflow-hidden">
+      <div ref={v.refs.reveal} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-px bg-line border border-line rounded-card overflow-hidden">
         {WHO.map(([k, t, d]) => (
           <div key={k} className="p-6 bg-panel flex flex-col gap-2.5">
             <span className="font-mono text-[12px] font-semibold leading-none text-signal">{k}</span>
@@ -219,7 +219,7 @@ function Trust({ v }) {
       <SectionHead eyebrow="CH 06 · TRUST" title="Built to be checked." />
       <div ref={v.refs.reveal} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,250px),1fr))] gap-3">
         {TRUST.map(([code, color, t, d]) => (
-          <div key={t} className="p-5 border border-line-2 rounded-[4px] flex flex-col gap-2">
+          <div key={t} className="p-5 border border-line-2 rounded-card flex flex-col gap-2">
             <span className={`font-mono text-[10.5px] font-semibold leading-none tracking-[.1em] ${color}`}>{code}</span>
             <h3 className="m-0 text-[17px] font-bold">{t}</h3>
             <p className="m-0 text-[14px] text-fg-2 leading-[1.55]">{d}</p>
@@ -292,7 +292,7 @@ export default function Site({ v }) {
 
   if (!v || !v.fan) return null;
   return (
-    <div className="bg-bg text-fg font-sans leading-[normal] overflow-x-clip">
+    <div className="bg-bg wash text-fg font-sans leading-[normal] overflow-x-clip">
       <Header v={v} />
       <main>
         <Hero v={v} />

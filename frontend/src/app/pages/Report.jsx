@@ -6,16 +6,16 @@ import { AutoGrid, EvidenceChip, Switch, TileGrid } from '../../components/ui.js
 const LBL = 'font-mono text-[10.5px] font-medium leading-none tracking-[.12em] text-fg-3';
 const HEAD = 'm-0 font-mono text-[11px] font-medium leading-none tracking-[.12em] text-fg-2';
 const SUB = 'font-mono text-[11px] leading-none text-fg-3';
-const CARD = 'bg-panel border border-line rounded-[4px] min-w-0';
-const BTN = 'h-9 px-3.5 border border-line-2 bg-panel rounded-[3px] text-[13px]';
-const PRIMARY = 'h-9 inline-flex items-center px-3.5 bg-accent text-on-accent rounded-[3px] font-semibold text-[13px] no-underline hover:no-underline';
+const CARD = 'card min-w-0';
+const BTN = 'h-9 px-3.5 border border-line-2 bg-panel rounded-ctl text-[13px] transition-colors hover:bg-panel-2 hover:border-fg-3';
+const PRIMARY = 'h-9 inline-flex items-center px-3.5 bg-accent text-on-accent rounded-ctl font-semibold text-[13px] no-underline hover:no-underline';
 
 // Panel with the mono header row; `right` is the small caption on the right.
 function Sec({ title, right, h = 'h2', className = '', children }) {
   const H = h;
   return (
     <section className={`${CARD} ${className}`}>
-      <div className="flex flex-wrap justify-between gap-2 px-4 py-3 border-b border-line">
+      <div className="panel-head flex flex-wrap justify-between gap-2 px-4 py-3 border-b border-line">
         <H className={HEAD}>{title}</H>
         {right != null && <span className={`${SUB} whitespace-nowrap`}>{right}</span>}
       </div>
@@ -37,11 +37,11 @@ function Divider({ label, right }) {
 function Loading() {
   return (
     <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading run">
-      <div className="h-[90px] bg-panel-2 rounded-[4px]" />
-      <div className="h-[140px] bg-panel-2 rounded-[4px]" />
+      <div className="h-[90px] bg-panel-2 rounded-card" />
+      <div className="h-[140px] bg-panel-2 rounded-card" />
       <AutoGrid min={420} gap={12}>
-        <div className="h-[300px] bg-panel-2 rounded-[4px]" />
-        <div className="h-[300px] bg-panel-2 rounded-[4px]" />
+        <div className="h-[300px] bg-panel-2 rounded-card" />
+        <div className="h-[300px] bg-panel-2 rounded-card" />
       </AutoGrid>
     </div>
   );
@@ -49,7 +49,7 @@ function Loading() {
 
 function Failed({ r }) {
   return (
-    <div role="alert" className="flex flex-col items-center gap-3 px-6 py-12 border border-sev-stop rounded-[4px] text-center">
+    <div role="alert" className="flex flex-col items-center gap-3 px-6 py-12 border border-sev-stop rounded-card text-center">
       <div className="font-mono text-[11px] font-semibold leading-none tracking-[.14em] text-sev-stop">RUN UNAVAILABLE</div>
       <p className="m-0 text-fg-2">{r.error}</p>
       <div className="flex gap-2.5">
@@ -62,7 +62,7 @@ function Failed({ r }) {
 
 function Warnings({ r }) {
   return (
-    <div role="status" className="flex items-start gap-3 px-3.5 py-[11px] border border-sev-monitor bg-[color-mix(in_oklch,var(--sev-monitor)_9%,transparent)] rounded-[4px]">
+    <div role="status" className="flex items-start gap-3 px-3.5 py-[11px] border border-[color-mix(in_oklch,var(--sev-monitor)_60%,transparent)] bg-[color-mix(in_oklch,var(--sev-monitor)_11%,var(--panel))] rounded-card">
       <span className="font-mono text-[10.5px] font-semibold leading-[1.6] tracking-[.08em] text-sev-monitor">WARN</span>
       <div className="flex flex-col gap-1 text-[13px] min-w-0">
         {r.warnings.map((w, i) => <span key={i}>{w.text}</span>)}
@@ -72,7 +72,7 @@ function Warnings({ r }) {
 }
 
 function Header({ r }) {
-  const pill = 'px-[9px] py-[5px] border border-line-2 rounded-[2px]';
+  const pill = 'px-[9px] py-[5px] border border-line-2 bg-panel rounded-chip';
   return (
     <div className="flex flex-wrap justify-between items-end gap-4 pb-4 border-b border-line">
       <div className="min-w-0">
@@ -81,8 +81,8 @@ function Header({ r }) {
         </div>
         <h1 className="mt-2 mb-2.5 text-[30px] font-semibold tracking-[-.015em]">{r.machine}</h1>
         <div className="flex flex-wrap items-center gap-2 font-mono text-[12px] leading-none text-fg-2 tabular">
-          <span className="inline-flex items-center gap-1.5 px-[9px] py-[5px] border rounded-[2px] font-semibold text-[11px] tracking-[.08em] uppercase"
-            style={{ borderColor: r.sevColor, color: r.sevColor, background: r.sevTint }}>
+          <span className="inline-flex items-center gap-1.5 px-[9px] py-[5px] border rounded-chip font-semibold text-[11px] tracking-[.08em] uppercase"
+            style={{ borderColor: `color-mix(in oklch, ${r.sevColor} 55%, transparent)`, color: r.sevColor, background: r.sevTint }}>
             <span className="size-1.5 rounded-full" style={{ background: r.sevColor }} />{r.sevLabel}
           </span>
           <span className={pill}>CONF {r.conf}</span>
@@ -102,16 +102,16 @@ function Header({ r }) {
 
 function Verdict({ r }) {
   return (
-    <section aria-label="Verdict" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,230px),1fr))] bg-panel border border-line rounded-[4px] overflow-hidden">
-      <div className="col-span-full flex items-start gap-4 px-5 pt-5 pb-[18px] border-b border-line">
+    <section aria-label="Verdict" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,230px),1fr))] card overflow-hidden">
+      <div className="col-span-full flex items-start gap-4 px-5 pt-5 pb-[18px] border-b border-line bg-[linear-gradient(100deg,color-mix(in_oklch,var(--signal)_9%,transparent),transparent_65%)]">
         <span className="shrink-0 mt-1 font-mono text-[10.5px] font-semibold leading-none tracking-[.14em] text-signal">VERDICT</span>
         <p className="m-0 text-[18px] leading-[1.5] [text-wrap:pretty] max-w-[78ch]">{r.summary}</p>
       </div>
       <div className="px-5 py-4 border-r border-line min-w-0">
         <div className={LBL}>PRIMARY FAULT</div>
         <div className="mt-2.5 text-[20px] font-semibold">{r.primary}</div>
-        <div className="mt-2.5 h-1 bg-line rounded-[2px]" role="meter" aria-label="Confidence" aria-valuemin={0} aria-valuemax={100} aria-valuenow={parseInt(r.confW, 10) || 0}>
-          <div className="h-full bg-signal rounded-[2px]" style={{ width: r.confW }} />
+        <div className="mt-2.5 h-1 bg-line rounded-chip" role="meter" aria-label="Confidence" aria-valuemin={0} aria-valuemax={100} aria-valuenow={parseInt(r.confW, 10) || 0}>
+          <div className="h-full bg-signal rounded-chip" style={{ width: r.confW }} />
         </div>
         <div className="mt-1.5 font-mono text-[11px] leading-none text-fg-3">confidence {r.conf}</div>
       </div>
@@ -131,13 +131,13 @@ function Verdict({ r }) {
 function VideoPanel({ r }) {
   const vd = r.video;
   return (
-    <section className="bg-[#050706] border border-line rounded-[4px] overflow-hidden">
-      <div data-noprint="" className="flex flex-wrap justify-between items-center gap-2.5 px-3 py-2.5 border-b border-line bg-panel">
+    <section className="bg-[#050706] border border-line rounded-card overflow-hidden">
+      <div data-noprint="" className="flex flex-wrap justify-between items-center gap-2.5 px-3 py-2.5 border-b border-line bg-panel panel-head">
         <h2 className={HEAD}>VIDEO · side_by_side.mp4</h2>
         <div role="group" aria-label="Video view" className="flex gap-1">
           {vd.tabs.map(t => (
             <button key={t.label} type="button" onClick={t.onClick} aria-pressed={!!t.on}
-              className="h-[30px] px-3 border rounded-[3px] font-mono text-[11.5px] font-medium leading-none"
+              className="h-[30px] px-3 border rounded-ctl font-mono text-[11.5px] font-medium leading-none"
               style={{ borderColor: t.bd, background: t.bg, color: t.fg }}>{t.label}</button>
           ))}
         </div>
@@ -157,9 +157,9 @@ function VideoPanel({ r }) {
   );
 }
 
-function Tile({ label, value, unit, signal }) {
+function Tile({ label, value, unit, signal, edge = 'var(--info)' }) {
   return (
-    <div className="bg-panel p-4 min-w-0">
+    <div className="edge bg-panel p-4 min-w-0" style={{ '--edge': signal ? 'var(--signal)' : edge }}>
       <div className={LBL}>{label}</div>
       <div className={`mt-3 font-mono text-[30px] font-medium leading-none tabular ${signal ? 'text-signal' : ''}`}>{value}</div>
       <div className="mt-1.5 font-mono text-[11px] leading-none text-fg-3">{unit}</div>
@@ -172,9 +172,9 @@ function Measurements({ r }) {
     <TileGrid min={150}>
       <Tile label="FREQUENCY" value={r.hz} unit={`Hz · ±${r.res}`} signal />
       <Tile label="SPEED" value={r.cpm} unit="CPM" />
-      <Tile label="AMPLITUDE" value={r.px} unit="px peak" />
-      <Tile label="SNR" value={r.snr} unit="signal / noise" />
-      <div className="bg-panel px-4 py-3.5 flex items-center gap-3.5 min-w-0">
+      <Tile label="AMPLITUDE" value={r.px} unit="px peak" edge="var(--violet)" />
+      <Tile label="SNR" value={r.snr} unit="signal / noise" edge="var(--c3)" />
+      <div className="edge bg-panel px-4 py-3.5 flex items-center gap-3.5 min-w-0" style={{ '--edge': 'var(--c5)' }}>
         <div role="img" aria-label={`Vibration direction ${r.dirDeg}`}
           className="relative size-[76px] shrink-0 border border-line-2 rounded-full [background-image:linear-gradient(var(--line)_1px,transparent_1px),linear-gradient(90deg,var(--line)_1px,transparent_1px)] [background-size:100%_50%,50%_100%] [background-position:0_-.5px,-.5px_0]">
           <div className="absolute left-2 right-2 top-1/2 h-0.5 -mt-px bg-signal shadow-[0_0_8px_var(--signal-dim)]" style={{ transform: r.dirRot }} />
@@ -198,7 +198,7 @@ function Spectrum({ r }) {
     <Sec title="SPECTRUM · LOG AMPLITUDE" right={`0–${s.fmax} Hz`}>
       <div className="p-4">
         {s.hasImg ? (
-          <div role="img" aria-label="Vibration spectrum" className="block w-full rounded-[2px] aspect-[3/1]" style={{ background: s.imgBg }} />
+          <div role="img" aria-label="Vibration spectrum" className="block w-full rounded-chip aspect-[3/1]" style={{ background: s.imgBg }} />
         ) : (
           <>
             <div role="img" aria-label={`Vibration spectrum, peaks: ${s.markers.map(k => k.label).join(', ') || 'none'}`}
@@ -230,7 +230,7 @@ function Harmonics({ r }) {
           <div key={h.order} className="flex flex-col gap-1.5 items-stretch min-w-0">
             <span className="font-mono text-[11px] font-medium leading-none text-center text-fg-2">{h.rel}</span>
             <div className="h-[150px] flex items-end border-b border-line-2">
-              <div className="w-full rounded-t-[2px]" style={{ height: h.h, background: h.color }} aria-hidden="true" />
+              <div className="w-full rounded-t-chip" style={{ height: h.h, background: h.color }} aria-hidden="true" />
             </div>
             <span className="font-mono text-[13px] font-semibold leading-none text-center">{h.order}</span>
             <span className="font-mono text-[10px] leading-[1.3] text-center text-fg-3">{h.hz}{' '}Hz</span>
@@ -247,7 +247,7 @@ function Segmentation({ r }) {
   return (
     <Sec title={`SEGMENTATION · ${m.source}`} right={`prompt “${m.prompt}”`}>
       <div className="p-4 flex flex-col gap-3">
-        <div role="img" aria-label={`Segmentation mask for “${m.prompt}”`} className="relative aspect-[16/10] border border-line rounded-[2px] overflow-hidden" style={{ background: m.bg }}>
+        <div role="img" aria-label={`Segmentation mask for “${m.prompt}”`} className="relative aspect-[16/10] border border-line rounded-chip overflow-hidden" style={{ background: m.bg }}>
           <span className="absolute left-2.5 top-2.5 font-mono text-[10.5px] leading-none text-fg-3">{m.label}</span>
           {m.box && (
             <div className="absolute border-[1.5px] border-signal bg-[color-mix(in_oklch,var(--signal)_14%,transparent)]"
@@ -266,13 +266,13 @@ function Segmentation({ r }) {
 
 function CrossChecks({ r }) {
   const a = r.acc, rot = r.rot;
-  const box = 'p-3 border border-line-2 rounded-[3px] min-w-0';
+  const box = 'p-3 border border-line-2 rounded-ctl min-w-0';
   return (
     <section className={`${CARD} flex flex-col`}>
       <div className="px-4 py-3 border-b border-line"><h2 className={HEAD}>CROSS-CHECKS</h2></div>
       <div className="p-4 flex flex-col gap-3.5">
         {r.hasAcc && a && (
-          <div className="flex items-center gap-3.5 p-3.5 border rounded-[3px]" style={{ borderColor: a.color, background: `color-mix(in oklch, ${a.color} 7%, transparent)` }}>
+          <div className="flex items-center gap-3.5 p-3.5 border rounded-ctl" style={{ borderColor: a.color, background: `color-mix(in oklch, ${a.color} 7%, transparent)` }}>
             <span className="font-mono text-[20px] font-semibold leading-none" style={{ color: a.color }} aria-hidden="true">{a.agrees ? '✓' : '✕'}</span>
             <div className="flex-1 min-w-0">
               <div className="font-semibold">{a.label}</div>
@@ -281,7 +281,7 @@ function CrossChecks({ r }) {
           </div>
         )}
         {r.noAcc && (
-          <div className="p-3.5 border border-dashed border-line-2 rounded-[3px] text-[13px] text-fg-2">No accelerometer recording attached. Add a phyphox CSV next time to cross-check the camera.</div>
+          <div className="p-3.5 border border-dashed border-line-2 rounded-ctl text-[13px] text-fg-2">No accelerometer recording attached. Add a phyphox CSV next time to cross-check the camera.</div>
         )}
         {rot && (
           <div className="flex flex-col gap-2.5">
@@ -309,13 +309,13 @@ function CrossChecks({ r }) {
 
 function NoDiagnosis({ dx }) {
   return (
-    <div className="flex flex-col items-center gap-2.5 px-6 py-11 border border-dashed border-line-2 rounded-[4px] text-center">
+    <div className="flex flex-col items-center gap-2.5 px-6 py-11 border border-dashed border-line-2 rounded-card text-center">
       <div className="font-mono text-[11px] font-medium leading-none tracking-[.14em] text-fg-3">NO DIAGNOSIS</div>
       <h2 className="m-0 text-[19px] font-semibold">This run was measured but not diagnosed</h2>
       <p className="m-0 text-fg-2 max-w-[520px]">The spectrum and harmonics above are complete. Diagnose this run to get a ranked fault list with evidence, repair steps and, optionally, the fix drawn on your frame. The measurement is reused; nothing is uploaded again.</p>
 
       {dx.running ? (
-        <div role="status" aria-live="polite" className="w-full max-w-[520px] mt-2 border border-line rounded-[4px] text-left">
+        <div role="status" aria-live="polite" className="w-full max-w-[520px] mt-2 border border-line rounded-card text-left">
           {dx.stages.map(g => (
             <div key={g.key} className="flex items-center gap-3 px-3.5 py-[11px] border-b border-line last:border-b-0" style={{ opacity: g.st === 'pending' ? 0.5 : 1 }}>
               <span className={`size-2.5 rounded-full shrink-0 ${g.st === 'running' ? 'animate-pulse' : ''}`} style={{ background: g.color }} />
@@ -362,18 +362,18 @@ function Diagnosis({ r }) {
   return (
     <>
       <Divider label="§ DIAGNOSIS" right="Muse Spark" />
-      <section aria-label="Diagnosis" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,340px),1fr))] bg-panel border border-line rounded-[4px] overflow-hidden">
+      <section aria-label="Diagnosis" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,340px),1fr))] card overflow-hidden">
         <div className="border-r border-line p-2 min-w-0">
           <div className={`px-2 pt-2 pb-2.5 ${LBL}`}>RANKED FAULTS</div>
           {r.faults.map(f => (
             <button key={f.rank} type="button" onClick={f.onClick} aria-pressed={!!f.on}
-              className="flex flex-col gap-2 w-full text-left p-3 mb-1.5 border rounded-[3px] text-fg"
+              className="flex flex-col gap-2 w-full text-left p-3 mb-1.5 border rounded-ctl text-fg"
               style={{ borderColor: f.bd, background: f.bg }}>
               <span className="flex justify-between items-baseline gap-2.5">
                 <span className="font-semibold"><span className="mr-2 font-mono text-[11px] font-medium leading-none text-fg-3">{f.rank}</span>{f.name}</span>
                 <span className="font-mono text-[15px] font-semibold leading-none tabular">{f.pct}</span>
               </span>
-              <span className="block h-1 bg-line rounded-[2px]"><span className="block h-full bg-signal rounded-[2px]" style={{ width: f.w }} /></span>
+              <span className="block h-1 bg-line rounded-chip"><span className="block h-full bg-signal rounded-chip" style={{ width: f.w }} /></span>
               <span className="font-mono text-[11px] leading-none text-fg-3">{f.freq} · {f.rel} · {f.nSup}{' '}for / {f.nCon}{' '}against</span>
             </button>
           ))}
@@ -403,7 +403,7 @@ function Diagnosis({ r }) {
         )}
       </section>
       {r.hasUnc && (
-        <section className="flex flex-col gap-2 px-4 py-3.5 border border-dashed border-line-2 rounded-[4px]">
+        <section className="flex flex-col gap-2 px-4 py-3.5 border border-dashed border-line-2 rounded-card">
           <h3 className="m-0 font-mono text-[10.5px] font-medium leading-none tracking-[.12em] text-fg-3">WHAT WE’RE UNSURE ABOUT</h3>
           {r.unc.map((u, i) => (
             <div key={i} className="flex gap-2.5 text-[13.5px] text-fg-2 leading-[1.5]">
@@ -422,7 +422,7 @@ function FixSlider({ r }) {
   return (
     <Sec title="NOW ↔ AFTER THE FIX" right="drag" h="h3">
       <div className="p-4">
-        <div className="relative aspect-[4/3] border border-line rounded-[2px] overflow-hidden select-none">
+        <div className="relative aspect-[4/3] border border-line rounded-chip overflow-hidden select-none">
           <div className="absolute inset-0" style={{ background: s.after }}>
             <span className="absolute right-2.5 top-2.5 font-mono text-[10.5px] leading-none text-fg-3">{s.afterLabel}</span>
           </div>
@@ -459,8 +459,8 @@ function FixPlan({ r }) {
                 <div className="flex flex-col gap-2 min-w-0">
                   <span className="text-[14px] leading-[1.5]">{a.step}</span>
                   <span className="flex flex-wrap gap-1.5 font-mono text-[11px] leading-none">
-                    <span className="px-[7px] py-1 border border-line-2 rounded-[2px] text-fg-2">AT {a.where}</span>
-                    <span className="px-[7px] py-1 border border-c4 text-c4 rounded-[2px]">{a.page}</span>
+                    <span className="px-[7px] py-1 border border-line-2 rounded-chip text-fg-2">AT {a.where}</span>
+                    <span className="px-[7px] py-1 border border-c4 text-c4 rounded-chip">{a.page}</span>
                   </span>
                 </div>
               </li>
@@ -473,7 +473,7 @@ function FixPlan({ r }) {
         </section>
         <Sec title="WHERE TO ACT" right="where_to_act.png" h="h3">
           <div className="p-4">
-            <div role="img" aria-label={w.hasPt ? `Where to act: ${w.pt}` : 'Where to act'} className="relative aspect-[4/3] border border-line rounded-[2px] overflow-hidden" style={{ background: w.bg }}>
+            <div role="img" aria-label={w.hasPt ? `Where to act: ${w.pt}` : 'Where to act'} className="relative aspect-[4/3] border border-line rounded-chip overflow-hidden" style={{ background: w.bg }}>
               <span className="absolute left-2.5 top-2.5 font-mono text-[10.5px] leading-none text-fg-3">{w.label}</span>
               {w.hasPt && (
                 <>
@@ -486,7 +486,7 @@ function FixPlan({ r }) {
         </Sec>
       </AutoGrid>
       {r.noViz && (
-        <div className="p-[22px] border border-dashed border-line-2 rounded-[4px] text-fg-2 text-[13.5px]">No fix visualization for this run. Turn on “Show the fix” in Analyze to see the repair drawn on your frame with Muse Image.</div>
+        <div className="p-[22px] border border-dashed border-line-2 rounded-card text-fg-2 text-[13.5px]">No fix visualization for this run. Turn on “Show the fix” in Analyze to see the repair drawn on your frame with Muse Image.</div>
       )}
       <AutoGrid min={420}>
         {r.viz && <FixSlider r={r} />}
@@ -496,7 +496,7 @@ function FixPlan({ r }) {
           {r.cites.map((c, i) => (
             <div key={i} className="px-4 py-3.5 border-b border-line flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10.5px] font-medium leading-none">
-                <span className="px-[7px] py-1 border rounded-[2px] font-semibold tracking-[.06em] uppercase" style={{ borderColor: c.color, color: c.color, background: c.tintc }}>{c.badge}</span>
+                <span className="px-[7px] py-1 border rounded-chip font-semibold tracking-[.06em] uppercase" style={{ borderColor: c.color, color: c.color, background: c.tintc }}>{c.badge}</span>
                 <span className="text-fg-2">{c.page}</span>
                 <span className="text-fg-3">{c.found} · {c.score}</span>
               </div>
@@ -563,26 +563,26 @@ function NoFixNeeded({ r }) {
 function RescanCta({ r }) {
   if (r.noFault) {
     return (
-      <section data-noprint="" className="flex flex-wrap items-center justify-between gap-4 p-[22px] border border-line rounded-[4px] bg-panel">
+      <section data-noprint="" className="flex flex-wrap items-center justify-between gap-4 p-[22px] border border-line rounded-card bg-panel">
         <div>
           <div className="text-[17px] font-semibold">Healthy today. Scan again later to track it.</div>
           <div className="mt-1 text-fg-2 text-[13.5px]">A later scan from the same spot shows whether the vibration starts to grow.</div>
         </div>
-        <a href={r.rescanHref} className="h-10 inline-flex items-center px-4 border border-line-2 rounded-[3px] text-fg text-[13px] no-underline hover:no-underline">Scan again</a>
+        <a href={r.rescanHref} className="h-10 inline-flex items-center px-4 border border-line-2 rounded-ctl text-fg text-[13px] no-underline hover:no-underline">Scan again</a>
       </section>
     );
   }
   return (
-    <section data-noprint="" className="flex flex-wrap items-center justify-between gap-4 p-[22px] border border-signal rounded-[4px] bg-[color-mix(in_oklch,var(--signal)_7%,var(--panel))]">
+    <section data-noprint="" className="flex flex-wrap items-center justify-between gap-4 p-[22px] border border-signal rounded-card bg-[color-mix(in_oklch,var(--signal)_7%,var(--panel))]">
       <div>
         <div className="text-[19px] font-semibold">Fixed it? Rescan from the same spot.</div>
         <div className="mt-1 text-fg-2 text-[13.5px]">Same angle, same distance. Resonance compares both runs and issues a certificate of fix.</div>
       </div>
       <div className="flex flex-wrap gap-2">
         {r.hasCompare && (
-          <a href={r.compareHref} className="h-10 inline-flex items-center px-4 border border-line-2 rounded-[3px] text-fg text-[13px] no-underline hover:no-underline">View certificate</a>
+          <a href={r.compareHref} className="h-10 inline-flex items-center px-4 border border-line-2 rounded-ctl text-fg text-[13px] no-underline hover:no-underline">View certificate</a>
         )}
-        <a href={r.rescanHref} className="h-10 inline-flex items-center px-[18px] bg-accent text-on-accent rounded-[3px] font-semibold no-underline hover:no-underline">Start rescan</a>
+        <a href={r.rescanHref} className="h-10 inline-flex items-center px-[18px] bg-accent text-on-accent rounded-ctl font-semibold no-underline hover:no-underline">Start rescan</a>
       </div>
     </section>
   );

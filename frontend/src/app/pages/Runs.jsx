@@ -8,7 +8,7 @@ export default function Runs({ v }) {
         <Button primary href="#/analyze">+ New analysis</Button>
       </PageHeader>
 
-      <section className="bg-panel border border-line rounded-[4px] min-w-0">
+      <section className="card min-w-0">
         {/* Column header; hidden on narrow screens where the rows wrap and columns no longer line up. */}
         <div className="hidden sm:flex gap-4 px-4 py-2.5 border-b border-line font-mono text-[10.5px] font-medium leading-none tracking-[.1em] text-fg-3" aria-hidden="true">
           <span className="flex-1">MACHINE · RUN</span><span className="w-[110px]">FREQ</span><span className="w-24">AMP</span><span className="w-24">STATUS</span>
@@ -33,7 +33,7 @@ export default function Runs({ v }) {
             <span className="w-[110px] font-mono text-[13px] font-medium leading-none tabular">{r.freq}</span>
             <span className="w-24 font-mono text-[12.5px] leading-none text-fg-2 tabular">{r.amp}</span>
             <span className="w-24">
-              <span className="px-[7px] py-1 border rounded-[2px] font-mono text-[10px] font-semibold leading-none tracking-[.06em] uppercase whitespace-nowrap"
+              <span className="px-[7px] py-1 border rounded-chip font-mono text-[10px] font-semibold leading-none tracking-[.06em] uppercase whitespace-nowrap"
                 style={{ borderColor: r.sevColor, color: r.sevColor }}>{r.sevLabel}</span>
             </span>
           </a>

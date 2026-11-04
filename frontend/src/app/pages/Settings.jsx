@@ -9,7 +9,7 @@ function Options({ opts, label, h = 'h-[34px]' }) {
     <div role="group" aria-label={label} className="flex gap-1">
       {opts.map(o => (
         <button key={o.label} type="button" onClick={o.onClick} aria-pressed={!!o.on}
-          className={`${h} px-3.5 border rounded-[3px] font-mono text-[12px] font-medium leading-none whitespace-nowrap`}
+          className={`${h} px-3.5 border rounded-ctl font-mono text-[12px] font-medium leading-none whitespace-nowrap`}
           style={{ background: o.bg, color: o.fg, borderColor: o.bd }}>{o.label}</button>
       ))}
     </div>

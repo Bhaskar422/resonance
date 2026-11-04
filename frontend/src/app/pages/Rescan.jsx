@@ -1,7 +1,7 @@
 import { Eyebrow, Switch } from '../../components/ui.jsx';
 
 const FIELD_LABEL = 'font-mono text-[10.5px] font-medium leading-none tracking-[.1em] text-fg-3';
-const SELECT = 'h-10 px-2.5 bg-bg border border-line-2 rounded-[3px] text-fg min-w-0 w-full';
+const SELECT = 'h-10 px-2.5 bg-bg border border-line-2 rounded-ctl text-fg min-w-0 w-full';
 const SECTION_LABEL = 'font-mono text-[10.5px] font-medium leading-none tracking-[.12em] text-fg-3';
 
 export default function Rescan({ v }) {
@@ -16,14 +16,14 @@ export default function Rescan({ v }) {
       </div>
 
       {rs.none && (
-        <div className="p-10 border border-dashed border-line-2 rounded-[4px] text-center text-fg-2">
+        <div className="p-10 border border-dashed border-line-2 rounded-card text-center text-fg-2">
           You need two runs of the same machine to compare. <a href="#/analyze">Scan a machine</a>
         </div>
       )}
 
       {rs.can && (
         <section data-noprint="" aria-label="Choose runs to compare"
-          className="grid gap-3 items-end p-4 bg-panel border border-line rounded-[4px]"
+          className="grid gap-3 items-end p-4 card"
           style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))' }}>
           <label className="flex flex-col gap-1.5 min-w-0">
             <span className={FIELD_LABEL}>MACHINE</span>
@@ -47,7 +47,7 @@ export default function Rescan({ v }) {
             <Switch sw={rs.spark} label="Ask Muse Spark" />
             <span className="text-[13px]">Muse Spark verdict</span>
           </div>
-          <button type="button" onClick={rs.run} className="h-10 px-[18px] bg-accent text-on-accent border-0 rounded-[3px] font-semibold">Compare runs</button>
+          <button type="button" onClick={rs.run} className="h-10 px-[18px] bg-accent text-on-accent border-0 rounded-ctl font-semibold">Compare runs</button>
         </section>
       )}
 
@@ -55,21 +55,21 @@ export default function Rescan({ v }) {
 
       {rs.loading && (
         <div className="flex flex-col gap-3" role="status" aria-live="polite">
-          <div className="h-[200px] rounded-[4px] bg-panel-2" />
-          <div className="h-[160px] rounded-[4px] bg-panel-2" />
+          <div className="h-[200px] rounded-card bg-panel-2" />
+          <div className="h-[160px] rounded-card bg-panel-2" />
           <span className="font-mono text-[12px] leading-none text-fg-3">Comparing spectra and asking Muse Spark…</span>
         </div>
       )}
 
       {rs.failed && (
-        <div role="alert" className="flex flex-wrap gap-3 items-center p-3.5 border border-sev-stop rounded-[4px]">
+        <div role="alert" className="flex flex-wrap gap-3 items-center p-3.5 border border-sev-stop rounded-card">
           <span className="flex-1 min-w-[200px] [overflow-wrap:anywhere]">Comparison failed: {rs.error}</span>
-          <button type="button" onClick={rs.run} className="h-[34px] px-3 border border-line-2 bg-panel rounded-[3px]">Retry</button>
+          <button type="button" onClick={rs.run} className="h-[34px] px-3 border border-line-2 bg-panel rounded-ctl">Retry</button>
         </div>
       )}
 
       {rs.idle && (
-        <div className="p-9 border border-dashed border-line-2 rounded-[4px] text-center text-fg-2">Choose two runs and press Compare.</div>
+        <div className="p-9 border border-dashed border-line-2 rounded-card text-center text-fg-2">Choose two runs and press Compare.</div>
       )}
 
       {rs.hasResult && rs.res && <Certificate v={v} rs={rs} res={rs.res} />}
@@ -79,7 +79,7 @@ export default function Rescan({ v }) {
 
 function Certificate({ v, rs, res }) {
   return (
-    <article aria-label={`Certificate of fix ${res.cert}`} className="border rounded-[6px] bg-panel overflow-hidden min-w-0" style={{ borderColor: res.color }}>
+    <article aria-label={`Certificate of fix ${res.cert}`} className="border rounded-card bg-panel overflow-hidden min-w-0" style={{ borderColor: res.color }}>
       <div className="flex flex-wrap justify-between gap-2.5 px-5 py-3 border-b border-line font-mono text-[11px] font-medium leading-[1.4] tracking-[.1em] text-fg-3">
         <span>CERTIFICATE OF FIX · {res.cert}</span>
         <span>ISSUED {res.issued}{res.tag ? ` · ${res.tag}` : ''}</span>
@@ -94,7 +94,7 @@ function Certificate({ v, rs, res }) {
           </div>
           <div className="font-mono text-[64px] font-medium leading-none tracking-[-.03em] tabular">{res.big}</div>
           <div className="font-mono text-[13px] leading-[1.4] text-fg-2 tabular">vibration at {res.hz} · {res.bigDb}</div>
-          <div className="scope relative h-[150px] mt-1.5 border border-line rounded-[3px] overflow-hidden">
+          <div className="scope relative h-[150px] mt-1.5 border border-line rounded-ctl overflow-hidden">
             <canvas ref={v.refs.motionCompare} role="img" aria-label="Before and after magnified motion" className="absolute inset-0 block w-full h-full" />
           </div>
         </div>
@@ -108,12 +108,12 @@ function Certificate({ v, rs, res }) {
                 <span>{w.before} → {w.after}</span>
                 <span className="font-semibold" style={{ color: w.color }}>{w.pct} · {w.db}</span>
               </div>
-              <div className="relative h-1.5 bg-line-2 rounded-[3px]">
-                <div className="absolute left-0 top-0 bottom-0 rounded-[3px]" style={{ width: w.wA, background: w.color }} />
+              <div className="relative h-1.5 bg-line-2 rounded-ctl">
+                <div className="absolute left-0 top-0 bottom-0 rounded-ctl" style={{ width: w.wA, background: w.color }} />
               </div>
             </div>
           ))}
-          <div className="flex flex-wrap justify-between gap-1.5 font-mono text-[13px] font-medium leading-[1.2] px-3 py-2.5 border border-line-2 rounded-[3px] tabular">
+          <div className="flex flex-wrap justify-between gap-1.5 font-mono text-[13px] font-medium leading-[1.2] px-3 py-2.5 border border-line-2 rounded-ctl tabular">
             <span>RMS displacement</span>
             <span>{res.rms.before} → {res.rms.after}</span>
             <span style={{ color: res.rms.color }}>{res.rms.pct}</span>
@@ -163,8 +163,8 @@ function Certificate({ v, rs, res }) {
           <a href={res.before.href}>{res.before.date}&nbsp;before</a> → <a href={res.after.href}>{res.after.date}&nbsp;after</a>
         </span>
         <span className="flex gap-2">
-          <button type="button" onClick={rs.print} className="h-8 px-3 border border-line-2 bg-transparent rounded-[3px]">Export PDF</button>
-          <button type="button" onClick={rs.share} className="h-8 px-3 bg-accent text-on-accent border-0 rounded-[3px] font-semibold">Share certificate</button>
+          <button type="button" onClick={rs.print} className="h-8 px-3 border border-line-2 bg-transparent rounded-ctl">Export PDF</button>
+          <button type="button" onClick={rs.share} className="h-8 px-3 bg-accent text-on-accent border-0 rounded-ctl font-semibold">Share certificate</button>
         </span>
       </div>
     </article>

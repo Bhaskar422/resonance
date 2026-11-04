@@ -1,12 +1,12 @@
 import { PageHeader, Button, SeverityBadge, AutoGrid } from '../../components/ui.jsx';
 
 const H2 = 'm-0 font-mono text-[11px] font-medium leading-none tracking-[.12em] text-fg-2';
-const PANEL = 'bg-panel border border-line rounded-[4px] min-w-0';
+const PANEL = 'card min-w-0';
 const ROW_LINK = 'text-fg no-underline hover:no-underline';
 
 function Badge({ s, tinted = true, className = '' }) {
   return (
-    <span className={`border rounded-[2px] font-mono text-[10px] font-semibold leading-none uppercase whitespace-nowrap ${className}`}
+    <span className={`border rounded-chip font-mono text-[10px] font-semibold leading-none uppercase whitespace-nowrap ${className}`}
       style={{ borderColor: s.sevColor, color: s.sevColor, background: tinted ? s.sevTint : undefined }}>{s.sevLabel}</span>
   );
 }
@@ -22,13 +22,13 @@ export function Machines({ v }) {
       {v.loading && (
         <div role="status" aria-label="Loading machines">
           <AutoGrid min={280} gap={12} fill>
-            {v.skel6.map(k => <div key={k} className="h-[168px] rounded-[4px] bg-panel-2 border border-line" />)}
+            {v.skel6.map(k => <div key={k} className="h-[168px] rounded-card bg-panel-2 border border-line" />)}
           </AutoGrid>
         </div>
       )}
 
       {v.empty && (
-        <div className="p-12 text-center text-fg-2 border border-dashed border-line-2 rounded-[4px]">
+        <div className="p-12 text-center text-fg-2 border border-dashed border-line-2 rounded-card">
           No machines yet. <a href="#/analyze">Run your first analysis</a>.
         </div>
       )}
@@ -91,14 +91,14 @@ export function MachineDetail({ v }) {
   return (
     <div className="flex flex-col gap-5">
       {m.missing && (
-        <div className="p-12 text-center border border-dashed border-line-2 rounded-[4px]">
+        <div className="p-12 text-center border border-dashed border-line-2 rounded-card">
           Machine not found. <a href="#/machines">Back to machines</a>
         </div>
       )}
       {!m.found && !m.missing && v.loading && (
         <div role="status" aria-label="Loading machine" className="flex flex-col gap-3">
-          <div className="h-[90px] rounded-[4px] bg-panel-2" />
-          <div className="h-[300px] rounded-[4px] bg-panel-2" />
+          <div className="h-[90px] rounded-card bg-panel-2" />
+          <div className="h-[300px] rounded-card bg-panel-2" />
         </div>
       )}
 
