@@ -11,7 +11,7 @@ export default function Usage({ v }) {
   if (!u) return null;
   return (
     <div className="flex flex-col gap-[18px]">
-      <PageHeader eyebrow="CH 07 · METER" title="Usage & cost">
+      <PageHeader eyebrow="METER" title="Usage & cost">
         {u.mock && (
           <span className="px-[9px] py-[5px] border border-dashed border-sev-monitor rounded-chip text-sev-monitor font-mono text-[11px] font-medium leading-[1.3]">
             Mock ledger · /api/costs not built yet

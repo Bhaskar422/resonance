@@ -21,7 +21,7 @@ export default function Settings({ v, a }) {
   if (!s) return null;
   return (
     <div className="flex flex-col gap-4 max-w-[820px]">
-      <PageHeader eyebrow="CH 08 · CONFIG" title="Settings" />
+      <PageHeader eyebrow="CONFIG" title="Settings" />
 
       {a && <AccountSettings a={a} />}
 

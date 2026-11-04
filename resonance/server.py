@@ -93,7 +93,7 @@ class Job:
 app = FastAPI(title="Resonance")
 _jobs: dict[str, Job] = {}
 _lock = threading.Lock()
-_pool = ThreadPoolExecutor(max_workers=1)
+_pool = ThreadPoolExecutor(max_workers=max(1, int(os.environ.get("RESONANCE_WORKERS") or 1)))  # analyses run side by side
 
 # ---------------------------------------------------------------------------
 # Accounts

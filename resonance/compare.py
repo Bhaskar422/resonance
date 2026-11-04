@@ -11,11 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure
 from scipy import signal as sps
 
 from resonance import frequency as fq
@@ -100,7 +97,8 @@ def _spark_verdict(before_dir: Path, result: dict, ledger: CostLedger) -> dict |
 
 def plot_compare(path: Path, before: fq.Spectrum, after: fq.Spectrum, f0: float, labels: tuple[str, str]) -> Path:
     xmax = min(before.nyquist, after.nyquist, max(6 * f0, 60.0))
-    fig, ax = plt.subplots(figsize=(9, 3.4), facecolor=rpt.SURFACE)
+    fig = Figure(figsize=(9, 3.4), facecolor=rpt.SURFACE)
+    ax = fig.subplots()
     for spec, color, label in ((before, rpt.SERIES_1, labels[0]), (after, rpt.SERIES_2, labels[1])):
         sel = spec.freqs <= xmax
         ax.plot(spec.freqs[sel], spec.amplitude[sel], color=color, lw=1.6, label=label)
@@ -111,7 +109,6 @@ def plot_compare(path: Path, before: fq.Spectrum, after: fq.Spectrum, f0: float,
     ax.set_ylim(bottom=0)
     fig.tight_layout()
     fig.savefig(path, dpi=150, facecolor=rpt.SURFACE)
-    plt.close(fig)
     return path
 
 

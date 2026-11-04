@@ -15,10 +15,11 @@ export default function Shell({ v, a, children }) {
             </a>
           ))}
           <div className="flex-1" />
+          <div className="mx-2.5 mb-1.5 border-t border-line" />
           {v.nav.slice(5).map(n => (
-            <a key={n.key} href={n.href} aria-current={n.current} className="flex items-center gap-3 px-2.5 py-[9px] rounded-ctl text-[13.5px] no-underline hover:no-underline hover:bg-panel-2"
+            <a key={n.key} href={n.href} aria-current={n.current} className="flex items-center px-2.5 py-[9px] rounded-ctl text-[13.5px] no-underline hover:no-underline hover:bg-panel-2"
               style={{ color: n.on ? n.fg : 'var(--fg-2)', background: n.on ? n.bg : undefined }}>
-              <span className="font-mono text-[10.5px] font-medium leading-none opacity-70">{n.n}</span><span>{n.label}</span>
+              {n.label}
             </a>
           ))}
         </nav>

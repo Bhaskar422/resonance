@@ -147,6 +147,10 @@ obtains and renews the HTTPS certificate. Point the domain's DNS at the VM first
 volume. Register `https://<domain>/api/auth/github/callback` (and the Google one) with the
 OAuth apps.
 
+One analysis uses about two CPU cores and peaks near 3 GB of memory (10 s of 240 fps 1080p
+footage takes about a minute). Jobs run one at a time by default; on a bigger machine set
+`RESONANCE_WORKERS` (e.g. 3 on 8 vCPU / 16 GB) so several people's analyses run side by side.
+
 ### Spend limits
 
 Every paid model call starts from three endpoints, and all three are guarded:

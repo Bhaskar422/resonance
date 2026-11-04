@@ -83,7 +83,7 @@ const B = ({ children }) => <b className="text-fg">{children}</b>;
 export default function Guide() {
   return (
     <div className="flex flex-col gap-5 max-w-[1100px]">
-      <PageHeader eyebrow="CH 06 · PROCEDURE" title="Recording a good clip" sub="Six checks. Get these right and the measurement is as good as the physics allows." />
+      <PageHeader eyebrow="PROCEDURE" title="Recording a good clip" sub="Six checks. Get these right and the measurement is as good as the physics allows." />
 
       <AutoGrid min={300} gap={12} fill>
         {CARDS.map(([Art, title, body], i) => (

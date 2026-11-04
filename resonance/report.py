@@ -6,11 +6,8 @@ import json
 from pathlib import Path
 
 import cv2
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure  # not pyplot: its global figure registry is not thread-safe
 
 from resonance import frequency as fq
 from resonance.io import VideoWriter
@@ -64,7 +61,8 @@ def plot_spectra(
         xmax = min(xmax, max(6 * f0, 60.0))
 
     rows = 2 if accel is not None else 1
-    fig, axes = plt.subplots(rows, 1, figsize=(9, 3.2 * rows), sharex=True, facecolor=SURFACE, squeeze=False)
+    fig = Figure(figsize=(9, 3.2 * rows), facecolor=SURFACE)
+    axes = fig.subplots(rows, 1, sharex=True, squeeze=False)
     ax = axes[0, 0]
     sel = video.freqs <= xmax
     ax.plot(video.freqs[sel], video.amplitude[sel], color=SERIES_1, lw=1.6, label="Inside mask")
@@ -91,7 +89,6 @@ def plot_spectra(
     axes[-1, 0].set_xlim(0, xmax)
     fig.tight_layout()
     fig.savefig(path, dpi=150, facecolor=SURFACE)
-    plt.close(fig)
     return path
 
 
