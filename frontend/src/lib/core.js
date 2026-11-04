@@ -267,7 +267,7 @@ export function createApp(opts = {}) {
   const ld = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
   const sv = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   const emit = () => opts.onChange && opts.onChange();
-  const freshAz = () => ({ step: 1, file: null, fileName: '', fileSize: '', resolution: '', previewUrl: '', sampleClip: false, prompt: '', machine: '', fps: 0, duration: 10, accel: null, accelName: '', manual: null, manualName: '', diagnose: S ? S.defaults.diagnose : true, visualize: S ? S.defaults.visualize : true, dragging: false, running: false, st: {}, times: {}, error: null, simFail: false, failedOnce: false, rescanOf: null, jobId: null, t0: 0 });
+  const freshAz = () => ({ step: 1, file: null, fileName: '', fileSize: '', resolution: '', previewUrl: '', sampleClip: false, example: null, prompt: '', machine: '', fps: 0, duration: 10, accel: null, accelName: '', manual: null, manualName: '', diagnose: S ? S.defaults.diagnose : true, visualize: S ? S.defaults.visualize : true, dragging: false, running: false, st: {}, times: {}, error: null, simFail: false, failedOnce: false, rescanOf: null, jobId: null, t0: 0 });
   let S = null;
   S = {
     route: { name: 'dashboard', id: null, q: {} },
@@ -292,6 +292,7 @@ export function createApp(opts = {}) {
     async runs() { if (!live()) { await wait(420); return SAMPLE.runs.slice(); } return (await jf('/api/runs')).map(r => ({ ...r, thumb: abs(r.thumb) })); },
     async run(id) { if (!live()) { await wait(280); const d = SAMPLE.details[id]; if (!d) throw new Error(`Run “${id}” was not found.`); return d; } const d = await jf('/api/runs/' + encodeURIComponent(id)); const files = {}; for (const k in d.files || {}) files[k] = abs(d.files[k]); return normalizeDetail({ ...d, files }); },
     async analyze(fd) { return jf('/api/analyze', { method: 'POST', body: fd }); },
+    async examples() { return jf('/api/examples'); },
     async job(id) { return jf('/api/jobs/' + encodeURIComponent(id)); },
     async diagnoseRun(id, fd) { return jf('/api/runs/' + encodeURIComponent(id) + '/diagnose', { method: 'POST', body: fd }); },
     async compare(before, after, spark) { if (!live()) { await wait(1100); return { result: sampleCompare(before, after, spark), plot: null }; } const r = await jf('/api/compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ before, after, spark }) }); return { ...r, result: normalizeCompare(r.result), plot: abs(r.plot) }; },
@@ -324,6 +325,7 @@ export function createApp(opts = {}) {
     try { S.details[id] = await api.run(id); } catch (e) { S.detailErr[id] = e.message || String(e); }
     S.detailBusy[id] = false; emit();
   }
+  async function loadExamples() { if (!live() || S.examples) return; try { S.examples = await api.examples(); } catch (e) { S.examples = []; } emit(); }
   async function loadCosts() { S.costs = await api.costs(); emit(); }
   async function loadHealth() { if (!live()) return; try { S.health = await api.health(); } catch (e) { S.health = { ok: false }; } emit(); }
   function resetData() { S.runs = null; S.details = {}; S.detailErr = {}; S.detailBusy = {}; S.costs = null; S.health = null; S.rs.result = null; loadRuns(true); loadCosts(); loadHealth(); onRoute(); }
@@ -575,8 +577,8 @@ export function createApp(opts = {}) {
   }
   async function startLive() {
     const az = S.az, fd = new FormData();
-    if (az.file) fd.append('video', az.file); fd.append('prompt', az.prompt); fd.append('machine', az.machine); if (az.fps > 0) fd.append('capture_fps', String(az.fps)); fd.append('duration', String(az.duration)); fd.append('diagnose', String(az.diagnose)); fd.append('visualize', String(az.visualize && az.diagnose));
-    if (az.accel) fd.append('accel', az.accel); if (az.manual) fd.append('manual', az.manual);
+    if (az.example) fd.append('example', az.example); else if (az.file) fd.append('video', az.file); fd.append('prompt', az.prompt); fd.append('machine', az.machine); if (az.fps > 0) fd.append('capture_fps', String(az.fps)); fd.append('duration', String(az.duration)); fd.append('diagnose', String(az.diagnose)); fd.append('visualize', String(az.visualize && az.diagnose));
+    if (!az.example) { if (az.accel) fd.append('accel', az.accel); if (az.manual) fd.append('manual', az.manual); }
     markStage('upload', 'running'); emit();
     try { const { job } = await api.analyze(fd); az.jobId = job; poll(); }
     catch (e) { markStage('upload', 'error'); az.running = false; az.error = { stage: 'upload', idx: 0, msg: 'Could not reach the Resonance server at ' + origin() + '. ' + (e.message || '') }; emit(); }
@@ -605,7 +607,7 @@ export function createApp(opts = {}) {
   }
   function analyzeVM() {
     const az = S.az, P = planned(), now = performance.now();
-    const can = { 1: !!(az.file || az.sampleClip), 2: !!(az.prompt.trim() && az.fps >= 0 && az.duration > 0), 3: true, 4: true };
+    const can = { 1: !!(az.file || az.sampleClip || az.example), 2: !!(az.prompt.trim() && az.fps >= 0 && az.duration > 0), 3: true, 4: true };
     const labels = ['Video', 'Describe', 'Evidence', 'Options', 'Run'];
     const doneN = P.filter(([k]) => az.st[k] === 'done').length;
     const est = P.reduce((s, x) => s + x[3], 0);
@@ -619,7 +621,9 @@ export function createApp(opts = {}) {
       dropBd: az.dragging ? 'var(--accent)' : 'var(--line-2)', dropBg: az.dragging ? tint('var(--accent)', 10) : 'transparent', dragging: az.dragging,
       onFile: e => setFile(e.target.files && e.target.files[0]), onDrop: e => { e.preventDefault(); setFile(e.dataTransfer.files[0]); }, onDragOver: e => { e.preventDefault(); if (!az.dragging) { az.dragging = true; emit(); } }, onDragLeave: () => { az.dragging = false; emit(); },
       onMeta: e => { const v = e.target; if (v.duration && isFinite(v.duration)) { az.duration = +Math.min(10, v.duration).toFixed(1); az.resolution = v.videoWidth + '×' + v.videoHeight; emit(); } },
-      clearFile: () => { if (az.previewUrl) URL.revokeObjectURL(az.previewUrl); Object.assign(az, { file: null, fileName: '', fileSize: '', previewUrl: '', sampleClip: false }); emit(); },
+      clearFile: () => { if (az.previewUrl) URL.revokeObjectURL(az.previewUrl); Object.assign(az, { file: null, fileName: '', fileSize: '', previewUrl: '', sampleClip: false, example: null, accelName: az.example ? '' : az.accelName, manualName: az.example ? '' : az.manualName }); emit(); },
+      examples: live() ? (S.examples || []).map(e => ({ ...e, use: () => { Object.assign(az, { example: e.id, sampleClip: true, file: null, previewUrl: '', fileName: e.file, fileSize: e.size_mb + ' MB', resolution: '1920×1080', prompt: e.prompt || '', machine: e.machine || '', fps: 0, duration: e.duration || 10, accel: null, manual: null, accelName: e.accel || '', manualName: e.manual || '', step: 2 }); emit(); } })) : [],
+      hasExamples: live() && !!(S.examples && S.examples.length), exampleTitle: az.example ? ((S.examples || []).find(e => e.id === az.example) || {}).title : '',
       useSample: () => { Object.assign(az, { sampleClip: true, file: null, previewUrl: '', fileName: 'desk-fan_240fps_10s.mov', fileSize: '48.2 MB', resolution: '1920×1080', prompt: az.prompt || 'fan', machine: az.machine || 'Desk fan', fps: 240, duration: 10, step: 2 }); emit(); },
       isSample: !live(),
       prompt: az.prompt, machine: az.machine, fps: az.fps, duration: az.duration, onPrompt: set('prompt'), onMachine: set('machine'), onFps: set('fps', 1), onDuration: set('duration', 1),
@@ -768,7 +772,7 @@ export function createApp(opts = {}) {
     vals,
     mount() {
       document.documentElement.dataset.theme = S.theme;
-      if (MODE === 'app') { S.route = parse(); addEventListener('hashchange', onHash); loadRuns(); loadCosts(); loadHealth(); onRoute(); }
+      if (MODE === 'app') { S.route = parse(); addEventListener('hashchange', onHash); loadRuns(); loadCosts(); loadHealth(); loadExamples(); onRoute(); }
       else pipeT = setInterval(() => { if (pipeHold > 0) { pipeHold--; return; } S.pipe = (S.pipe + 1) % 6; emit(); }, 1800);
       emit();
     },

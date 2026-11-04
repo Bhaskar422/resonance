@@ -8,7 +8,14 @@ export default function Shell({ v, a, children }) {
         <div className="h-[var(--bar-h)] shrink-0 flex items-center px-[18px] border-b border-line"><Logo /></div>
         <nav aria-label="Workspace" className="flex flex-col gap-0.5 px-2.5 py-3 flex-1">
           <div className="px-2.5 pt-1.5 pb-2.5 font-mono text-[10px] font-medium leading-none tracking-[.14em] text-fg-3">CHANNELS</div>
-          {v.nav.map(n => (
+          {v.nav.slice(0, 5).map(n => (
+            <a key={n.key} href={n.href} aria-current={n.current} className="flex items-center gap-3 px-2.5 py-[9px] rounded-ctl text-[13.5px] no-underline hover:no-underline hover:bg-panel-2"
+              style={{ color: n.on ? n.fg : 'var(--fg-2)', background: n.on ? n.bg : undefined }}>
+              <span className="font-mono text-[10.5px] font-medium leading-none opacity-70">{n.n}</span><span>{n.label}</span>
+            </a>
+          ))}
+          <div className="flex-1" />
+          {v.nav.slice(5).map(n => (
             <a key={n.key} href={n.href} aria-current={n.current} className="flex items-center gap-3 px-2.5 py-[9px] rounded-ctl text-[13.5px] no-underline hover:no-underline hover:bg-panel-2"
               style={{ color: n.on ? n.fg : 'var(--fg-2)', background: n.on ? n.bg : undefined }}>
               <span className="font-mono text-[10.5px] font-medium leading-none opacity-70">{n.n}</span><span>{n.label}</span>

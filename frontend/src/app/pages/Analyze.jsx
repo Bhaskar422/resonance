@@ -73,11 +73,26 @@ function StepVideo({ az }) {
             style={{ borderColor: az.dropBd, background: az.dropBg }}>
             <span className="font-mono text-[28px] font-medium leading-none text-signal" aria-hidden="true">⤒</span>
             <span className="font-semibold">Drop a video here, or click to browse</span>
-            <span className="font-mono text-[12px] leading-none text-fg-3">.mov · .mp4 · up to 500 MB</span>
+            <span className="font-mono text-[12px] leading-none text-fg-3">.mov · .mp4 · up to 100 MB</span>
             <input type="file" accept="video/*" onChange={az.onFile} aria-label="Choose a video" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
           </div>
           {az.isSample && (
             <button type="button" onClick={az.useSample} className={`self-start h-9 px-3.5 text-[13px] ${SECONDARY}`}>Use the sample desk-fan clip</button>
+          )}
+          {az.hasExamples && (
+            <div className="flex flex-col gap-2.5">
+              <div className="font-mono text-[11px] font-medium leading-none tracking-[.12em] text-fg-2">NO FOOTAGE? TRY ONE OF OURS</div>
+              <div className="grid gap-2.5" style={GRID(220)}>
+                {az.examples.map(e => (
+                  <button key={e.id} type="button" onClick={e.use} className="card text-left p-3.5 flex flex-col gap-1.5 hover:border-[var(--accent)] cursor-pointer">
+                    {e.thumb && <img src={e.thumb} alt="" className="block w-full aspect-video object-cover rounded-chip border border-line mb-1" />}
+                    <span className="font-semibold text-[14px]">{e.title}</span>
+                    {e.note && <span className="text-fg-2 text-[12.5px] leading-[1.45]">{e.note}</span>}
+                    <span className="font-mono text-[11px] text-fg-3">{e.size_mb} MB{e.accel ? ' · + phyphox' : ''}{e.manual ? ' · + manual' : ''}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </>
       )}
@@ -91,6 +106,7 @@ function StepVideo({ az }) {
             <span className="absolute left-2.5 bottom-2.5 font-mono text-[10.5px] font-medium leading-none bg-bg px-1.5 py-[3px]">FRAME 0001</span>
           </div>
           <div className="flex flex-col gap-2.5 font-mono text-[12.5px] leading-[1.4] min-w-0">
+            {az.exampleTitle && <div className="font-mono text-[10.5px] font-medium tracking-[.12em] text-signal">EXAMPLE CLIP · {az.exampleTitle}</div>}
             <div className="font-sans font-semibold text-[15px] [overflow-wrap:anywhere]">{az.fileName}</div>
             <div className="text-fg-2">{az.fileSize} · {az.resolution}</div>
             <button type="button" onClick={az.clearFile} className={`self-start h-8 px-3 ${SECONDARY}`}>Replace video</button>

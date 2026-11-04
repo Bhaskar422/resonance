@@ -156,6 +156,15 @@ export default function Dashboard({ v }) {
               ))}
             </div>
           </section>
+
+          <section className="card min-w-0">
+            <PanelHead title="CONNECT THE CLI"><a href="#/settings" className="font-mono text-[11px] font-medium leading-none">Access tokens →</a></PanelHead>
+            <div className="px-4 py-3.5 flex flex-col gap-2 text-[13px] text-fg-2">
+              <code className="block font-mono text-[12.5px] text-fg px-3 py-2 rounded-ctl bg-bg border border-line [overflow-wrap:anywhere]">pipx install git+https://github.com/Bhaskar422/resonance</code>
+              <code className="block font-mono text-[12.5px] text-fg px-3 py-2 rounded-ctl bg-bg border border-line [overflow-wrap:anywhere]">resonance login --server {location.origin}</code>
+              <span>Login opens this site to approve the computer. For scripts, create an access token in Settings and pass it as <code className="font-mono">--token</code> or <code className="font-mono">RESONANCE_TOKEN</code>.</span>
+            </div>
+          </section>
         </>
       )}
     </div>
