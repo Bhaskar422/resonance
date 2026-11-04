@@ -7,7 +7,7 @@ what is wrong with evidence you can check, shows where to act, and proves the re
 Entry for the **Meta Global AI Developer Hackathon** (Indie Developer track).
 
 - **Demo video (3 min):** _link added after upload_
-- **Live site:** _link added after deployment_ (see [Deployment](#deployment))
+- **Live site:** [resonance.mindgears.dev](https://resonance.mindgears.dev): sign up, then try an example clip
 - **Code:** this repository, Apache-2.0
 
 ## How it works
@@ -63,15 +63,19 @@ All recorded by us with an iPhone in slow motion; numbers from the runs themselv
 
 ### On the hosted site
 
-Sign up with email and password or GitHub, upload a slow-motion clip (or browse the example
-runs), and get a report you can share. Each account can run 5 analyses and 3 diagnoses a day.
+Open [resonance.mindgears.dev](https://resonance.mindgears.dev) and sign up with email and password or GitHub.
+No footage needed: **Analyze → Try one of ours** runs the full pipeline on a recorded clip
+(the fan with putty, the fan after the fall, the motorcycle, the speaker), and the case-study
+runs from this README are open to every account. Or upload your own slow-motion clip.
+Each account can run 5 analyses and 3 diagnoses a day. Your own uploads and runs are visible
+only to you.
 
 ### With the CLI
 
 ```bash
 pipx install git+https://github.com/Bhaskar422/resonance      # or: uv tool install git+https://github.com/Bhaskar422/resonance
 resonance check clip.MOV                                     # free, local (needs ffmpeg): is this clip good enough?
-resonance login --server https://<your server>               # approve in the browser, like gh auth login
+resonance login                                              # approve in the browser, like gh auth login
 resonance upload clip.MOV --prompt fan --machine "NUUK LĪT table fan" --accel phyphox.csv --manual manual.pdf
 resonance runs                                               # your runs, newest first
 resonance pull <run>                                         # download the report, images and magnified video
@@ -82,7 +86,8 @@ resonance logout
 `upload` checks the clip first (it refuses a 30 fps copy) and prints the report link when the
 analysis is done. The token is stored in `~/.config/resonance/credentials.json` (readable only
 by you) and sent only to the server it came from. `RESONANCE_SERVER` and `RESONANCE_TOKEN`
-override it. Scripts can use an access token from Settings → Access tokens.
+override it. `login` uses the hosted site by default; pass `--server` for your own. Scripts
+can use an access token from Settings → Access tokens (`--token` or `RESONANCE_TOKEN`).
 
 ### Locally, with your own API key
 
@@ -125,7 +130,9 @@ for a private, single-user install.
 
 The app is one Python process (API, background analysis worker, web app) plus a data folder.
 It needs a long-running server with ffmpeg and a disk, so serverless platforms (Vercel
-functions, Lambda) don't fit; a small VM does.
+functions, Lambda) don't fit; a small VM does. The hosted site runs this same container on
+a DGX Spark behind a Cloudflare tunnel; uploads and runs live on its local disk, so no object
+store (S3) is needed.
 
 ```bash
 # on a fresh Ubuntu VM (e.g. AWS EC2 t3.large, ports 80 and 443 open) with Docker installed

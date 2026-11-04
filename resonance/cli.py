@@ -203,7 +203,7 @@ def check(
 # Your account on a Resonance server
 # ---------------------------------------------------------------------------
 
-SERVER = typer.Option(None, "--server", "-s", help="Server URL (default: the one you logged in to, else http://127.0.0.1:8000)")
+SERVER = typer.Option(None, "--server", "-s", help="Server URL (default: the one you logged in to, else https://resonance.mindgears.dev)")
 TOKEN = typer.Option(None, "--token", help="Access token (default: RESONANCE_TOKEN, else the saved login)")
 
 

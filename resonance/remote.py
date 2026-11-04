@@ -15,7 +15,7 @@ from pathlib import Path
 
 import httpx
 
-DEFAULT_SERVER = "http://127.0.0.1:8000"
+DEFAULT_SERVER = "https://resonance.mindgears.dev"
 
 
 class RemoteError(Exception):
