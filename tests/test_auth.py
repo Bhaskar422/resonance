@@ -189,3 +189,32 @@ def test_daily_spend_caps(out, monkeypatch):
     monkeypatch.setenv("RESONANCE_DAILY_BUDGET_USD", "2")
     _run(out, "admin-run")
     assert admin.post("/api/runs/admin-run/diagnose").status_code == 429
+
+
+def test_example_clips_and_showcase_runs(out, monkeypatch, tmp_path_factory):
+    ex = tmp_path_factory.mktemp("examples")
+    (ex / "fan-putty").mkdir()
+    (ex / "fan-putty" / "clip.mov").write_bytes(b"mov")
+    (ex / "fan-putty" / "accel.csv").write_text("t,x\n")
+    (ex / "fan-putty" / "example.json").write_text(json.dumps({"title": "Fan with putty", "video": "clip.mov", "accel": "accel.csv", "prompt": "fan", "machine": "Desk fan", "start": 1, "duration": 10}))
+    monkeypatch.setenv("RESONANCE_EXAMPLES", str(ex))
+    owner, bob, eve = _user("owner@example.com"), _user("bob@example.com"), _user("eve@example.com")
+    listed = bob.get("/api/examples").json()
+    assert [e["id"] for e in listed] == ["fan-putty"] and listed[0]["accel"] == "accel.csv"
+    jobs = []
+    monkeypatch.setattr(server, "_pool", type("P", (), {"submit": lambda self, fn, job, video, form: jobs.append((job, video, form))})())
+    r = bob.post("/api/analyze", data={"example": "fan-putty", "diagnose": "false"})
+    assert r.status_code == 200, r.text
+    job, video, form = jobs[0]
+    assert video.name == "clip.mov" and video.read_bytes() == b"mov" and form["accel"].name == "accel.csv"
+    assert form["prompt"] == "fan" and form["start"] == 1 and job.owner == bob.get("/api/me").json()["id"]
+    assert bob.post("/api/analyze", data={"example": "nope"}).status_code == 404
+    assert bob.post("/api/analyze", data={}).status_code == 400
+    # runs of the showcase account are open to everyone, read-only; other accounts stay private
+    ids = {e: c.get("/api/me").json()["id"] for e, c in (("owner", owner), ("bob", bob))}
+    _run(out, "owner-run"); server.accounts().set_owner("owner-run", ids["owner"])
+    _run(out, "bob-run"); server.accounts().set_owner("bob-run", ids["bob"])
+    monkeypatch.setenv("RESONANCE_SHOWCASE_EMAILS", "owner@example.com")
+    seen = {r["run"]: r["shared"] for r in eve.get("/api/runs").json()}
+    assert seen == {"owner-run": True, "shared-example": True}
+    assert eve.post("/api/runs/owner-run/diagnose").status_code == 403

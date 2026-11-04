@@ -42,6 +42,33 @@ OUT = Path("out")
 WEB = Path(__file__).parent / "web"
 DIST = WEB / "dist"
 RUN_NAME = re.compile(r"^[\w.-]+$")
+EXAMPLE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
+
+
+def examples_dir() -> Path:
+    """Example clips anyone signed in can analyse: <dir>/<id>/example.json plus the files it names."""
+    return Path(os.environ.get("RESONANCE_EXAMPLES", "examples"))
+
+
+def _examples() -> list[dict]:
+    out = []
+    for f in sorted(examples_dir().glob("*/example.json")):
+        try:
+            e = json.loads(f.read_text())
+        except ValueError:
+            continue
+        d = f.parent
+        if not EXAMPLE_ID.match(d.name) or not (d / e.get("video", "")).is_file():
+            continue
+        out.append({**e, "id": d.name, "dir": d})
+    return sorted(out, key=lambda e: (e.get("order", 99), e["id"]))
+
+
+def _example(eid: str) -> dict:
+    for e in _examples():
+        if e["id"] == eid:
+            return e
+    raise HTTPException(404, "no such example clip")
 SERVED_FILES = {
     "side_by_side.mp4", "spectrum.png", "mask_overlay.png", "mask_measured.png", "key_frame.png", "action_point.png",
     "where_to_act.png", "fixed_state.png", "now_vs_fixed.png", "compare.png", "report.json", "diagnosis.json",
@@ -112,11 +139,17 @@ def _owner(run: str) -> str | None:
     return None if auth_off() else accounts().owners().get(run)
 
 
+def showcase_ids() -> set[str]:
+    """Accounts whose runs every signed-in user can open (read-only): RESONANCE_SHOWCASE_EMAILS."""
+    emails = [e.strip().lower() for e in os.environ.get("RESONANCE_SHOWCASE_EMAILS", "").split(",") if e.strip()]
+    return {u["id"] for u in (accounts().by_email(e) for e in emails) if u}
+
+
 def _visible(user: dict, run: str, owners: dict[str, str] | None = None) -> bool:
     if user["admin"]:
         return True
     owner = (owners if owners is not None else accounts().owners()).get(run)
-    return owner is None or owner == user["id"]
+    return owner is None or owner == user["id"] or owner in showcase_ids()
 
 
 def _own(user: dict, run: str) -> bool:
@@ -225,12 +258,13 @@ def run_created(run_dir: Path) -> float:
         return (run_dir / "report.json").stat().st_mtime
 
 
-def _summary(run_dir: Path, owner: str | None = None, user: dict | None = None) -> dict:
+def _summary(run_dir: Path, owner: str | None = None, user: dict | None = None, showcase: set[str] | None = None) -> dict:
     r = json.loads((run_dir / "report.json").read_text())
     dx = _read(run_dir / "diagnosis.json")
+    mine = bool(user and owner == user["id"])
     return {
-        "mine": bool(user and owner == user["id"]),
-        "shared": owner is None,
+        "mine": mine,
+        "shared": owner is None or (not mine and owner in (showcase or set())),
         "run": r["run"],
         "created": run_created(run_dir),
         "input": Path(r["input"]).name,
@@ -269,6 +303,7 @@ def _work(job: Job, video: Path, form: dict) -> None:
             accel_path=form.get("accel"),
             out_root=OUT,
             capture_fps=form.get("capture_fps"),
+            start_s=form.get("start"),
             duration_s=form.get("duration") or 10.0,
             on_stage=lambda done: _finish_stage(job, done, nxt.get(done, done)),
         )
@@ -375,7 +410,8 @@ def costs(user: dict = Depends(current_user)) -> list[dict]:
 def list_runs(user: dict = Depends(current_user)) -> list[dict]:
     owners = {} if auth_off() else accounts().owners()
     runs = [d for d in OUT.glob("*") if d.is_dir() and (d / "report.json").exists() and (d / "key_frame.png").exists() and _visible(user, d.name, owners)]
-    return sorted((_summary(d, owners.get(d.name), user) for d in runs), key=lambda r: r["created"], reverse=True)
+    show = set() if auth_off() else showcase_ids()
+    return sorted((_summary(d, owners.get(d.name), user, show) for d in runs), key=lambda r: r["created"], reverse=True)
 
 
 @app.get("/api/runs/{run}")
@@ -403,7 +439,8 @@ def get_file(run: str, name: str, user: dict = Depends(current_user)) -> FileRes
 
 @app.post("/api/analyze")
 async def start_analysis(
-    video: UploadFile = File(...),
+    video: UploadFile | None = File(None),
+    example: str = Form(""),
     prompt: str = Form(""),
     machine: str = Form(""),
     capture_fps: float | None = Form(None),
@@ -414,6 +451,9 @@ async def start_analysis(
     manual: UploadFile | None = File(None),
     user: dict = Depends(current_user),
 ) -> dict:
+    ex = _example(example.strip()) if example.strip() else None
+    if ex is None and (video is None or not video.filename):
+        raise HTTPException(400, "upload a video, or pick an example clip")
     guard_spend(user, "analysis", *(("diagnosis",) if diagnose else ()))
     job = Job(id=uuid.uuid4().hex[:12], owner=user["id"])
     up = OUT / "uploads" / job.id
@@ -427,15 +467,47 @@ async def start_analysis(
             shutil.copyfileobj(f.file, dst)
         return path
 
-    video_path = save(video)
+    def copy(name: str | None) -> Path | None:  # an example's file, linked into this job's folder
+        if not name or not (ex["dir"] / name).is_file():
+            return None
+        dst = up / _safe_name(name)
+        try:
+            os.link(ex["dir"] / name, dst)
+        except OSError:
+            shutil.copy2(ex["dir"] / name, dst)
+        return dst
+
+    if ex:
+        video_path, accel_path, manual_path = copy(ex["video"]), copy(ex.get("accel")), copy(ex.get("manual"))
+        prompt, machine = prompt or ex.get("prompt", ""), machine or ex.get("machine", "")
+        capture_fps, duration = capture_fps or ex.get("capture_fps"), duration or ex.get("duration")
+    else:
+        video_path, accel_path, manual_path = save(video), save(accel), save(manual)
     form = {
         "prompt": prompt.strip(), "machine": machine.strip(), "capture_fps": capture_fps, "duration": duration,
-        "diagnose": diagnose, "visualize": visualize, "accel": save(accel), "manual": save(manual),
+        "start": ex.get("start") if ex else None,
+        "diagnose": diagnose, "visualize": visualize, "accel": accel_path, "manual": manual_path,
     }
     with _lock:
         _jobs[job.id] = job
     _pool.submit(_work, job, video_path, form)
     return {"job": job.id}
+
+
+@app.get("/api/examples")
+def list_examples(user: dict = Depends(current_user)) -> list[dict]:
+    """Ready-made clips (with their sensor recording and manual) for people without their own footage."""
+    return [{k: e.get(k) for k in ("id", "title", "note", "prompt", "machine", "duration")}
+            | {"file": e["video"], "size_mb": round((e["dir"] / e["video"]).stat().st_size / 1e6, 1), "accel": e.get("accel"), "manual": e.get("manual"),
+               "thumb": f"/api/examples/{e['id']}/thumb" if (e["dir"] / "thumb.jpg").is_file() else None} for e in _examples()]
+
+
+@app.get("/api/examples/{eid}/thumb")
+def example_thumb(eid: str, user: dict = Depends(current_user)) -> FileResponse:
+    p = _example(eid)["dir"] / "thumb.jpg"
+    if not p.is_file():
+        raise HTTPException(404, "no thumbnail")
+    return FileResponse(p)
 
 
 @app.get("/api/jobs/{job_id}")
