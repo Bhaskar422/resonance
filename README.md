@@ -42,7 +42,7 @@ All code in this repository was written during the hackathon. The git history is
 | iPhone companion app | `companion/ios/` | SwiftUI: records 240 fps slow motion with focus and exposure locked, signs in, uploads and follows the analysis |
 | Web app | `frontend/` (built into `resonance/web/dist/`), `scripts/export_sample.py` | React + Tailwind: marketing site, dashboard, machines, guided analysis, run report, certificate of fix, recording guide, usage & cost, settings |
 | API probes | `scripts/probe_*.py` | Print raw API responses to verify schemas before relying on them |
-| Tests | `tests/` | 71 tests, all offline |
+| Tests | `tests/` | 72 tests, all offline |
 
 ## Setup
 
