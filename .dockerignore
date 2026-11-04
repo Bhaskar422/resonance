@@ -1,0 +1,9 @@
+.env
+.env.*
+.venv
+out
+samples
+frontend/node_modules
+design*
+**/__pycache__
+.git

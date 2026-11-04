@@ -1,0 +1,25 @@
+# One small server: Resonance behind Caddy, which gets and renews the HTTPS certificate itself.
+# Usage on the server:  RESONANCE_DOMAIN=resonance.example.com docker compose -f deploy/docker-compose.yml up -d --build
+services:
+  resonance:
+    build: ..
+    env_file: ../.env
+    environment:
+      RESONANCE_PUBLIC_URL: https://${RESONANCE_DOMAIN}
+    volumes:
+      - resonance-data:/data
+    restart: unless-stopped
+  caddy:
+    image: caddy:2.8.4
+    command: caddy reverse-proxy --from ${RESONANCE_DOMAIN} --to resonance:8000
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+    depends_on:
+      - resonance
+    restart: unless-stopped
+volumes:
+  resonance-data:
+  caddy-data:

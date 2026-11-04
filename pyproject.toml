@@ -33,6 +33,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["resonance"]
 
+# the built web app is committed but matches the "dist/" ignore rule: ship it anyway
+[tool.hatch.build]
+artifacts = ["resonance/web/dist/**"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
