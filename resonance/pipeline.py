@@ -122,25 +122,36 @@ def _get_mask(opts: AnalyzeOptions, frame: np.ndarray, run_dir: Path, ledger: Co
 
 def _measure(prep: rio.PreparedVideo, mask: np.ndarray, window: tuple[slice, slice], outline: np.ndarray) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
     """Displacement of the masked part and of a background ring around its outline (camera
-    reference), and the ring's mean brightness (to recognise light flicker). The ring follows
-    the whole outline, so holes cut for spinning parts do not pull the background inside."""
+    reference), and the mean brightness of the frame away from the part (to recognise light
+    flicker). The ring follows the whole outline, so holes cut for spinning parts do not pull
+    the background inside. Brightness is taken far from the part because a stem or bracket
+    moving with it crosses the ring and makes the ring's brightness pulse at the vibration;
+    real flicker pulses the whole picture at once."""
     m_crop = mask[window]
     ring = (_dilate(outline, CAMERA_RING[1]) & ~_dilate(outline, CAMERA_RING[0]))[window]
+    far = ~_dilate(outline, 4 * CAMERA_RING[1])[::2, ::2]  # every other pixel is plenty for a mean
+    if far.sum() < 500:
+        far = None
+
+    def brightness(full: np.ndarray, crop: np.ndarray) -> float:
+        return float(fq.to_gray(full[::2, ::2])[far].mean()) if far is not None else float(fq.to_gray(crop)[ring].mean())
+
     frames = prep.iter_frames()
-    first = next(frames)[window]
+    full = next(frames)
+    first = full[window]
     target = fq.TranslationTracker(first, m_crop)
     try:
         camera = fq.TranslationTracker(first, ring) if ring.sum() > 500 else None
     except ValueError:
         camera = None
     d_t, d_c = [target.update(first)], [camera.update(first)] if camera else []
-    light = [fq.to_gray(first)[ring].mean()] if camera else []
-    for f in frames:
-        c = f[window]
+    light = [brightness(full, first)] if camera else []
+    for full in frames:
+        c = full[window]
         d_t.append(target.update(c))
         if camera:
             d_c.append(camera.update(c))
-            light.append(fq.to_gray(c)[ring].mean())
+            light.append(brightness(full, c))
     return np.asarray(d_t), (np.asarray(d_c) if camera else None), (np.asarray(light, np.float64) if camera else None)
 
 
@@ -213,9 +224,9 @@ def analyze(video: str | Path, opts: AnalyzeOptions) -> dict:
         cam_info = {"amplitude_at_f0_px": round(cam_at_f0.amplitude, 5) if cam_at_f0 else None, "ratio_to_target": round(ratio, 3)}
         if ratio > 0.3:
             prep.warnings.append(
-                f"the background around the mask moves at {peak.freq_hz:.2f} Hz with {ratio:.0%} of the target's amplitude; "
-                "either what the machine stands on vibrates with it, or the camera is shaking (put the phone on a separate "
-                "tripod, not on the machine's table)"
+                f"the area just around the part moves at {peak.freq_hz:.2f} Hz with {ratio:.0%} of its amplitude; either the "
+                "part is mounted on something that vibrates with it (a stem, bracket or table), or the camera is shaking "
+                "(put the phone on a separate tripod, not on the machine or its table)"
             )
     timer.lap("measure")
 
