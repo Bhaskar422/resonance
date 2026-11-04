@@ -172,3 +172,20 @@ def test_accounts_can_be_turned_off(out, monkeypatch):
     c = TestClient(server.app)
     assert c.get("/api/me").json()["name"] == "Local"
     assert [r["run"] for r in c.get("/api/runs").json()] == ["shared-example"]
+
+
+def test_daily_spend_caps(out, monkeypatch):
+    admin, ada = _user("admin@example.com"), _user("ada@example.com")
+    monkeypatch.setenv("RESONANCE_DAILY_DIAGNOSES", "1")
+    ada_id = ada.get("/api/me").json()["id"]
+    _run(out, "ada-run"); server.accounts().set_owner("ada-run", ada_id)
+    monkeypatch.setattr(server, "_pool", type("P", (), {"submit": lambda self, *a, **k: None})())
+    assert ada.post("/api/runs/ada-run/diagnose").status_code == 200
+    r = ada.post("/api/runs/ada-run/diagnose")
+    assert r.status_code == 429 and "1 diagnoses per account per day" in r.json()["detail"]
+    assert ada.get("/api/me").json()["usage"]["diagnosis"] == {"used": 1, "limit": 1}
+    # the site-wide budget stops everyone, admins included
+    (out / "costs.jsonl").write_text(json.dumps({"ts": __import__("time").strftime("%Y-%m-%dT%H:%M:%S"), "est_cost_usd": 2.5}) + "\n")
+    monkeypatch.setenv("RESONANCE_DAILY_BUDGET_USD", "2")
+    _run(out, "admin-run")
+    assert admin.post("/api/runs/admin-run/diagnose").status_code == 429

@@ -123,6 +123,57 @@ def _own(user: dict, run: str) -> bool:
     return bool(user["admin"]) or _owner(run) == user["id"]
 
 
+# ---- spend caps: every paid model call starts from one of the endpoints below ----
+LIMITS = {"analysis": ("RESONANCE_DAILY_ANALYSES", 5), "diagnosis": ("RESONANCE_DAILY_DIAGNOSES", 3)}
+PLURAL = {"analysis": "analyses", "diagnosis": "diagnoses"}
+
+
+def _limit(kind: str) -> int:
+    env, default = LIMITS[kind]
+    try:
+        return int(os.environ.get(env, default))
+    except ValueError:
+        return default
+
+
+def spent_today() -> float:
+    """Model spend so far today (server local date), from the cost ledger."""
+    path, day, total = OUT / "costs.jsonl", time.strftime("%Y-%m-%d"), 0.0
+    if path.exists():
+        for line in path.read_text().splitlines():
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            if str(e.get("ts", "")).startswith(day):
+                total += float(e.get("est_cost_usd") or 0)
+    return total
+
+
+def _budget() -> float | None:
+    v = os.environ.get("RESONANCE_DAILY_BUDGET_USD", "").strip()
+    try:
+        return float(v) if v else None
+    except ValueError:
+        return None
+
+
+def guard_spend(user: dict, *kinds: str) -> None:
+    """Refuse a paid job once the account's daily allowance or the site's daily budget is used up.
+    Admins and single-user installs (RESONANCE_AUTH=off) have no per-account limit."""
+    budget = _budget()
+    if budget is not None and spent_today() >= budget:
+        raise HTTPException(429, f"this server has used today's model budget (${budget:.2f}); try again tomorrow, or browse the example runs")
+    if auth_off() or user.get("admin"):
+        return
+    for kind in kinds:
+        used, cap = accounts().used_today(user["id"], kind), _limit(kind)
+        if used >= cap:
+            raise HTTPException(429, f"daily limit reached: {cap} {PLURAL[kind]} per account per day; try again tomorrow")
+    for kind in kinds:
+        accounts().count_use(user["id"], kind)
+
+
 def _safe_name(name: str) -> str:
     stem = re.sub(r"[^\w.-]+", "_", Path(name or "upload").name)[:80]
     return stem or "upload"
@@ -363,6 +414,7 @@ async def start_analysis(
     manual: UploadFile | None = File(None),
     user: dict = Depends(current_user),
 ) -> dict:
+    guard_spend(user, "analysis", *(("diagnosis",) if diagnose else ()))
     job = Job(id=uuid.uuid4().hex[:12], owner=user["id"])
     up = OUT / "uploads" / job.id
     up.mkdir(parents=True, exist_ok=True)
@@ -430,6 +482,7 @@ async def diagnose_run(
 ) -> dict:
     """Diagnose an already-measured run (Muse Spark), then optionally show the fix (Muse Image)."""
     run_dir = _run_dir(run, user, write=True)
+    guard_spend(user, "diagnosis")
     job = Job(id=uuid.uuid4().hex[:12], run=run, stage="diagnose", done=[], owner=user["id"])
     manual_path = None
     if manual is not None and manual.filename:
@@ -449,6 +502,8 @@ def compare(req: CompareRequest, user: dict = Depends(current_user)) -> dict:
     from resonance.compare import compare_runs
 
     before, after = _run_dir(req.before, user), _run_dir(req.after, user, write=True)
+    if req.spark:
+        guard_spend(user)  # the Spark verdict is a few tenths of a cent: only the site budget applies
     if before == after:
         raise HTTPException(400, "pick two different runs")
     result = compare_runs(before, after, ask_spark=req.spark)
@@ -492,7 +547,8 @@ def _signed_in(request: Request, user: dict, response: Response) -> dict:
 
 def _me(user: dict) -> dict:
     providers = [] if user["id"] == LOCAL_USER["id"] else accounts().providers(user["id"])
-    return {**acct.public(user), "providers": providers, "auth": not auth_off()}
+    usage = None if auth_off() or user.get("admin") else {k: {"used": accounts().used_today(user["id"], k), "limit": _limit(k)} for k in LIMITS}
+    return {**acct.public(user), "providers": providers, "auth": not auth_off(), "usage": usage}
 
 
 def _fail(e: Exception, status: int = 400) -> HTTPException:

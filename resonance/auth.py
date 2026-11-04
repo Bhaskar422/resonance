@@ -62,6 +62,13 @@ create table if not exists run_owners (
     run text primary key,
     user_id text not null references users(id)
 );
+create table if not exists usage (
+    user_id text not null,
+    day text not null,          -- YYYY-MM-DD, server local time
+    kind text not null,         -- analysis | diagnosis
+    n integer not null default 0,
+    primary key (user_id, day, kind)
+);
 """
 
 
@@ -184,7 +191,7 @@ class Accounts:
     def delete_user(self, user_id: str) -> list[str]:
         """Erase the account and everything that signs in as it; returns the runs it owned."""
         runs = [r["run"] for r in self._q("select run from run_owners where user_id = ?", (user_id,))]
-        for table in ("run_owners", "tokens", "sessions", "identities"):
+        for table in ("run_owners", "tokens", "sessions", "identities", "usage"):
             self._q(f"delete from {table} where user_id = ?", (user_id,))
         self._q("delete from users where id = ?", (user_id,))
         return runs
@@ -240,6 +247,15 @@ class Accounts:
             return None
         self._q("update tokens set last_used = ? where id = ?", (time.time(), row["id"]))
         return self.user(row["user_id"])
+
+    # ---- daily usage (spend caps on paid model calls) ----
+    def used_today(self, user_id: str, kind: str) -> int:
+        row = self._one("select n from usage where user_id = ? and day = ? and kind = ?", (user_id, time.strftime("%Y-%m-%d"), kind))
+        return row["n"] if row else 0
+
+    def count_use(self, user_id: str, kind: str) -> None:
+        self._q("insert into usage (user_id, day, kind, n) values (?, ?, ?, 1) on conflict(user_id, day, kind) do update set n = n + 1",
+                (user_id, time.strftime("%Y-%m-%d"), kind))
 
     # ---- run ownership ----
     def set_owner(self, run: str, user_id: str) -> None:
