@@ -83,3 +83,5 @@
   :root, :root[data-theme="light"] { --bg: #fff; --panel: #fff; --panel-2: #f5f5f5; --fg: #000; --fg-2: #333; --fg-3: #555; --line: #ddd; --line-2: #bbb; --signal: #0a7a44; --accent: #0a7a44; --link: #1f5bcc; --head: #fff; --shadow-card: none; --tabpad: 0px; }
   .wash { background-image: none; }
 }
+
+@keyframes fadein { to { opacity: 1; } }

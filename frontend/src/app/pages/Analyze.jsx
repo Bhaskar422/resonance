@@ -79,6 +79,14 @@ function StepVideo({ az }) {
           {az.isSample && (
             <button type="button" onClick={az.useSample} className={`self-start h-9 px-3.5 text-[13px] ${SECONDARY}`}>Use the sample desk-fan clip</button>
           )}
+          {az.examplesLoading && (
+            <div role="status" aria-label="Loading example clips" className="flex flex-col gap-2.5 animate-pulse">
+              <div className="font-mono text-[11px] font-medium leading-none tracking-[.12em] text-fg-3">LOADING EXAMPLE CLIPS…</div>
+              <div className="grid gap-2.5" style={GRID(220)}>
+                {[0, 1, 2, 3].map(k => <div key={k} className="card h-[300px] bg-panel-2" />)}
+              </div>
+            </div>
+          )}
           {az.hasExamples && (
             <div className="flex flex-col gap-2.5">
               <div className="font-mono text-[11px] font-medium leading-none tracking-[.12em] text-fg-2">NO FOOTAGE? TRY ONE OF OURS</div>

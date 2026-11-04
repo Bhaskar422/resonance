@@ -55,9 +55,9 @@ export default function Rescan({ v }) {
 
       {rs.loading && (
         <div className="flex flex-col gap-3" role="status" aria-live="polite">
-          <div className="h-[200px] rounded-card bg-panel-2" />
-          <div className="h-[160px] rounded-card bg-panel-2" />
-          <span className="font-mono text-[12px] leading-none text-fg-3">Comparing spectra and asking Muse Spark…</span>
+          <span className="flex items-center gap-2.5 font-mono text-[12px] leading-none text-fg-3"><span className="size-3.5 rounded-full border-2 border-line-2 border-t-[var(--accent)] animate-spin" />Comparing spectra and asking Muse Spark…</span>
+          <div className="h-[200px] rounded-card bg-panel-2 animate-pulse" />
+          <div className="h-[160px] rounded-card bg-panel-2 animate-pulse" />
         </div>
       )}
 

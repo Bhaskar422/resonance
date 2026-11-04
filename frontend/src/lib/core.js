@@ -288,10 +288,25 @@ export function createApp(opts = {}) {
   const abs = u => !u ? u : (/^(https?:|blob:|data:)/.test(u) ? u : base() + (u[0] === '/' ? '' : '/') + u);
   const origin = () => base() || location.origin;
   async function jf(path, init) { const r = await fetch(base() + path, init); if (r.status === 401) dispatchEvent(new Event('resonance:unauthorized')); if (!r.ok) { let m = `${r.status} ${r.statusText}`; try { const j = await r.json(); m = j.detail || j.error || m; } catch (e) {} throw new Error(m); } return r.json(); }
+  // XHR rather than fetch, so a large clip can report how much of it has been sent
+  function postForm(path, fd, onProgress) {
+    return new Promise((resolve, reject) => {
+      const x = new XMLHttpRequest();
+      x.open('POST', base() + path);
+      x.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total); };
+      x.onload = () => {
+        if (x.status === 401) dispatchEvent(new Event('resonance:unauthorized'));
+        let j = null; try { j = JSON.parse(x.responseText); } catch (e) {}
+        if (x.status >= 200 && x.status < 300 && j) resolve(j); else reject(new Error((j && (j.detail || j.error)) || `${x.status} ${x.statusText}`));
+      };
+      x.onerror = () => reject(new Error('network error'));
+      x.send(fd);
+    });
+  }
   const api = {
     async runs() { if (!live()) { await wait(420); return SAMPLE.runs.slice(); } return (await jf('/api/runs')).map(r => ({ ...r, thumb: abs(r.thumb) })); },
     async run(id) { if (!live()) { await wait(280); const d = SAMPLE.details[id]; if (!d) throw new Error(`Run “${id}” was not found.`); return d; } const d = await jf('/api/runs/' + encodeURIComponent(id)); const files = {}; for (const k in d.files || {}) files[k] = abs(d.files[k]); return normalizeDetail({ ...d, files }); },
-    async analyze(fd) { return jf('/api/analyze', { method: 'POST', body: fd }); },
+    analyze(fd, onProgress) { return postForm('/api/analyze', fd, onProgress); },
     async examples() { return jf('/api/examples'); },
     async job(id) { return jf('/api/jobs/' + encodeURIComponent(id)); },
     async diagnoseRun(id, fd) { return jf('/api/runs/' + encodeURIComponent(id) + '/diagnose', { method: 'POST', body: fd }); },
@@ -527,7 +542,13 @@ export function createApp(opts = {}) {
   async function runCompare() {
     const { before, after } = S.rs; if (!before || !after) return;
     S.rs.loading = true; S.rs.error = null; S.rs.result = null; emit();
-    try { await Promise.all([loadDetail(before), loadDetail(after)]); const r = await api.compare(before, after, S.rs.spark); S.rs.result = r.result; S.rs.plot = r.plot; }
+    try {
+      await Promise.all([loadDetail(before), loadDetail(after)]);
+      // a rescan already judged for this pair opens at once, with no model call (and works on read-only showcase runs)
+      const A = S.details[after] || {}, saved = A.compare;
+      if (saved && saved.before_run === before) { S.rs.result = saved; S.rs.plot = (A.files || {})['compare.png'] || null; }
+      else { const r = await api.compare(before, after, S.rs.spark); S.rs.result = r.result; S.rs.plot = r.plot; }
+    }
     catch (e) { S.rs.error = e.message || String(e); }
     S.rs.loading = false; emit();
   }
@@ -580,7 +601,8 @@ export function createApp(opts = {}) {
     if (az.example) fd.append('example', az.example); else if (az.file) fd.append('video', az.file); fd.append('prompt', az.prompt); fd.append('machine', az.machine); if (az.fps > 0) fd.append('capture_fps', String(az.fps)); fd.append('duration', String(az.duration)); fd.append('diagnose', String(az.diagnose)); fd.append('visualize', String(az.visualize && az.diagnose));
     if (!az.example) { if (az.accel) fd.append('accel', az.accel); if (az.manual) fd.append('manual', az.manual); }
     markStage('upload', 'running'); emit();
-    try { const { job } = await api.analyze(fd); az.jobId = job; poll(); }
+    az.up = null;
+    try { const { job } = await api.analyze(fd, (sent, total) => { az.up = { sent, total }; }); az.jobId = job; poll(); }
     catch (e) { markStage('upload', 'error'); az.running = false; az.error = { stage: 'upload', idx: 0, msg: 'Could not reach the Resonance server at ' + origin() + '. ' + (e.message || '') }; emit(); }
   }
   function poll() {
@@ -610,6 +632,8 @@ export function createApp(opts = {}) {
     const can = { 1: !!(az.file || az.sampleClip || az.example), 2: !!(az.prompt.trim() && az.fps >= 0 && az.duration > 0), 3: true, 4: true };
     const labels = ['Video', 'Describe', 'Evidence', 'Options', 'Run'];
     const doneN = P.filter(([k]) => az.st[k] === 'done').length;
+    const uploading = az.st.upload === 'running' && az.up && az.up.total > 0, upFrac = uploading ? az.up.sent / az.up.total : 0;
+    const upDesc = uploading ? (az.up.sent >= az.up.total ? 'Uploaded. Waiting for the server to start…' : `Uploading your video… ${Math.round(upFrac * 100)}% · ${(az.up.sent / 1e6).toFixed(0)} of ${(az.up.total / 1e6).toFixed(0)} MB`) : '';
     const est = P.reduce((s, x) => s + x[3], 0);
     const set = (k, num) => e => { az[k] = num ? +e.target.value : e.target.value; emit(); };
     return {
@@ -623,7 +647,7 @@ export function createApp(opts = {}) {
       onMeta: e => { const v = e.target; if (v.duration && isFinite(v.duration)) { az.duration = +Math.min(10, v.duration).toFixed(1); az.resolution = v.videoWidth + '×' + v.videoHeight; emit(); } },
       clearFile: () => { if (az.previewUrl) URL.revokeObjectURL(az.previewUrl); Object.assign(az, { file: null, fileName: '', fileSize: '', previewUrl: '', sampleClip: false, example: null, accelName: az.example ? '' : az.accelName, manualName: az.example ? '' : az.manualName }); emit(); },
       examples: live() ? (S.examples || []).map(e => ({ ...e, hasRun: !!e.run, runHref: e.run ? '#/runs/' + encodeURIComponent(e.run) : '', use: () => { Object.assign(az, { example: e.id, sampleClip: true, file: null, previewUrl: '', fileName: e.file, fileSize: e.size_mb + ' MB', resolution: '1920×1080', prompt: e.prompt || '', machine: e.machine || '', fps: 0, duration: e.duration || 10, accel: null, manual: null, accelName: e.accel || '', manualName: e.manual || '', step: 2 }); emit(); } })) : [],
-      hasExamples: live() && !!(S.examples && S.examples.length), exampleTitle: az.example ? ((S.examples || []).find(e => e.id === az.example) || {}).title : '',
+      hasExamples: live() && !!(S.examples && S.examples.length), examplesLoading: live() && !S.examples, exampleTitle: az.example ? ((S.examples || []).find(e => e.id === az.example) || {}).title : '',
       useSample: () => { Object.assign(az, { sampleClip: true, file: null, previewUrl: '', fileName: 'desk-fan_240fps_10s.mov', fileSize: '48.2 MB', resolution: '1920×1080', prompt: az.prompt || 'fan', machine: az.machine || 'Desk fan', fps: 240, duration: 10, step: 2 }); emit(); },
       isSample: !live(),
       prompt: az.prompt, machine: az.machine, fps: az.fps, duration: az.duration, onPrompt: set('prompt'), onMachine: set('machine'), onFps: set('fps', 1), onDuration: set('duration', 1),
@@ -639,9 +663,9 @@ export function createApp(opts = {}) {
       est: money(est), estRange: '$' + fx(Math.max(0.002, est * 0.8), 3) + '–' + fx(est * 1.2 + 0.002, 3), nStages: P.length,
       start, retry, reset: () => { simToken++; clearTimeout(pollT); S.az = freshAz(); emit(); },
       running: az.running, idle: !az.running && !az.error && !az.done, error: az.error ? az.error.msg : '', hasError: !!az.error, errStage: az.error ? cap(az.error.stage || '') : '', done: !!az.done,
-      pct: Math.round(doneN / P.length * 100) + '%', pctN: Math.round(doneN / P.length * 100), elapsed: az.t0 ? fx(((az.running ? now : (Math.max(...Object.values(az.times).map(t => t.e || t.s), az.t0))) - az.t0) / 1000, 1) + ' s' : '0.0 s',
-      current: (P.find(([k]) => az.st[k] === 'running') || P.find(([k]) => az.st[k] === 'error') || [])[2] || (az.done ? 'Report ready. Opening…' : ''),
-      stages: P.map(([k, l, desc, cost], i) => { const st = az.st[k] || 'pending', t = az.times[k]; return { key: k, label: l, desc, n: String(i + 1).padStart(2, '0'), st, isRun: st === 'running', isDone: st === 'done', isErr: st === 'error', isPend: st === 'pending', stLabel: { pending: 'Waiting', running: 'Running', done: 'Done', error: 'Failed' }[st], elapsed: t ? fx(((t.e || now) - t.s) / 1000, 1) + ' s' : '—', cost: cost ? '≈ ' + money(cost) : 'local · free', color: st === 'done' ? 'var(--ok)' : st === 'running' ? 'var(--accent)' : st === 'error' ? 'var(--sev-stop)' : 'var(--line-2)', op: st === 'pending' ? '0.5' : '1' }; }),
+      pct: Math.round((doneN + upFrac) / P.length * 100) + '%', pctN: Math.round((doneN + upFrac) / P.length * 100), elapsed: az.t0 ? fx(((az.running ? now : (Math.max(...Object.values(az.times).map(t => t.e || t.s), az.t0))) - az.t0) / 1000, 1) + ' s' : '0.0 s',
+      current: (uploading && upDesc) || (P.find(([k]) => az.st[k] === 'running') || P.find(([k]) => az.st[k] === 'error') || [])[2] || (az.done ? 'Report ready. Opening…' : ''),
+      stages: P.map(([k, l, desc0, cost], i) => { const desc = k === 'upload' && uploading ? upDesc : desc0; const st = az.st[k] || 'pending', t = az.times[k]; return { key: k, label: l, desc, n: String(i + 1).padStart(2, '0'), st, isRun: st === 'running', isDone: st === 'done', isErr: st === 'error', isPend: st === 'pending', stLabel: { pending: 'Waiting', running: 'Running', done: 'Done', error: 'Failed' }[st], elapsed: t ? fx(((t.e || now) - t.s) / 1000, 1) + ' s' : '—', cost: cost ? '≈ ' + money(cost) : 'local · free', color: st === 'done' ? 'var(--ok)' : st === 'running' ? 'var(--accent)' : st === 'error' ? 'var(--sev-stop)' : 'var(--line-2)', op: st === 'pending' ? '0.5' : '1' }; }),
       rescanOf: az.rescanOf, isRescan: !!az.rescanOf, rescanBg: az.rescanOf ? imgBg(((S.details[az.rescanOf] || {}).files || {})['key_frame.png']) : STRIPE,
     };
   }

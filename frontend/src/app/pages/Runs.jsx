@@ -15,7 +15,7 @@ export default function Runs({ v }) {
         </div>
 
         {v.loading && (
-          <div role="status" aria-label="Loading runs">
+          <div role="status" aria-label="Loading runs" className="animate-pulse">
             {v.skel6.map(k => <div key={k} className="h-[58px] border-b border-line bg-[linear-gradient(90deg,transparent,var(--panel-2),transparent)]" />)}
           </div>
         )}

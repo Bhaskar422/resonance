@@ -37,13 +37,16 @@ function Divider({ label, right }) {
 
 function Loading() {
   return (
-    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Loading run">
+    <div className="flex flex-col gap-3" role="status" aria-busy="true" aria-label="Loading run">
+      <div className="flex items-center gap-2.5 font-mono text-[12px] text-fg-3"><span className="size-3.5 rounded-full border-2 border-line-2 border-t-[var(--accent)] animate-spin" />Loading the report…</div>
+      <div className="animate-pulse flex flex-col gap-3">
       <div className="h-[90px] bg-panel-2 rounded-card" />
       <div className="h-[140px] bg-panel-2 rounded-card" />
       <AutoGrid min={420} gap={12}>
         <div className="h-[300px] bg-panel-2 rounded-card" />
         <div className="h-[300px] bg-panel-2 rounded-card" />
       </AutoGrid>
+      </div>
     </div>
   );
 }
@@ -63,9 +66,9 @@ function Failed({ r }) {
 
 function Warnings({ r }) {
   return (
-    <div role="status" className="flex items-start gap-3 px-3.5 py-[11px] border border-[color-mix(in_oklch,var(--sev-monitor)_60%,transparent)] bg-[color-mix(in_oklch,var(--sev-monitor)_11%,var(--panel))] rounded-card">
-      <span className="font-mono text-[10.5px] font-semibold leading-[1.6] tracking-[.08em] text-sev-monitor">WARN</span>
-      <div className="flex flex-col gap-1 text-[13px] min-w-0">
+    <div role="status" className="flex items-start gap-3 px-3.5 py-[9px] border border-[color-mix(in_oklch,var(--info)_35%,transparent)] bg-[color-mix(in_oklch,var(--info)_7%,var(--panel))] rounded-card">
+      <span className="font-mono text-[10.5px] font-semibold leading-[1.6] tracking-[.08em] text-info">NOTE</span>
+      <div className="flex flex-col gap-1 text-[12.5px] text-fg-2 min-w-0">
         {r.warnings.map((w, i) => <span key={i}>{w.text}</span>)}
       </div>
     </div>
@@ -149,7 +152,7 @@ function VideoPanel({ r }) {
         {vd.has ? (
           <>
             <video key={vd.url} src={vd.url} poster={vd.poster || undefined} autoPlay muted loop playsInline preload="auto" aria-label="Original and magnified motion"
-              onPlaying={() => setReady(vd.url)} className="block h-full max-w-none object-cover" style={{ width: vd.w, transform: vd.x }} />
+              onPlaying={() => setReady(vd.url)} onCanPlay={() => setReady(vd.url)} className="block h-full max-w-none object-cover" style={{ width: vd.w, transform: vd.x }} />
             {loading && (
               <div role="status" className="absolute inset-0 flex items-center justify-center bg-[rgba(5,7,6,.45)]">
                 <span className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-chip bg-[rgba(5,7,6,.85)] border border-line font-mono text-[12px] text-[#cfd8d4]">
@@ -210,7 +213,8 @@ function Spectrum({ r }) {
     <Sec title="SPECTRUM · LOG AMPLITUDE" right={`0–${s.fmax} Hz`}>
       <div className="p-4">
         {s.hasImg ? (
-          <div role="img" aria-label="Vibration spectrum" className="block w-full rounded-chip aspect-[3/1]" style={{ background: s.imgBg }} />
+          <img src={s.img} alt="Vibration spectrum measured from the video, with the accelerometer's below when one was attached" loading="lazy" decoding="async"
+            className="block w-full h-auto rounded-chip bg-[#fcfcfb] min-h-[160px]" />
         ) : (
           <>
             <div role="img" aria-label={`Vibration spectrum, peaks: ${s.markers.map(k => k.label).join(', ') || 'none'}`}

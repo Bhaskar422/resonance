@@ -20,7 +20,7 @@ export function Machines({ v }) {
       </PageHeader>
 
       {v.loading && (
-        <div role="status" aria-label="Loading machines">
+        <div role="status" aria-label="Loading machines" className="animate-pulse">
           <AutoGrid min={280} gap={12} fill>
             {v.skel6.map(k => <div key={k} className="h-[168px] rounded-card bg-panel-2 border border-line" />)}
           </AutoGrid>
@@ -96,7 +96,7 @@ export function MachineDetail({ v }) {
         </div>
       )}
       {!m.found && !m.missing && v.loading && (
-        <div role="status" aria-label="Loading machine" className="flex flex-col gap-3">
+        <div role="status" aria-label="Loading machine" className="animate-pulse flex flex-col gap-3">
           <div className="h-[90px] rounded-card bg-panel-2" />
           <div className="h-[300px] rounded-card bg-panel-2" />
         </div>

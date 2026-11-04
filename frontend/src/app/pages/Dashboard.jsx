@@ -58,7 +58,7 @@ export default function Dashboard({ v }) {
       </PageHeader>
 
       {v.loading && (
-        <div role="status" aria-label="Loading runs" className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))]">
+        <div role="status" aria-label="Loading runs" className="animate-pulse grid gap-3 grid-cols-[repeat(auto-fit,minmax(min(100%,200px),1fr))]">
           {v.skel.map(k => (
             <div key={k} className="h-[118px] rounded-card border border-line bg-[linear-gradient(90deg,var(--panel)_0%,var(--panel-2)_50%,var(--panel)_100%)]" />
           ))}

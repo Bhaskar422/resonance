@@ -123,7 +123,7 @@ export function EmptyState({ eyebrow = 'NO SIGNAL', title, children, cta, ctaHre
 }
 
 export function Skeleton({ h = 12, w = '100%', className = '' }) {
-  return <div className={`bg-panel-2 rounded-chip ${className}`} style={{ height: h, width: w }} />;
+  return <div className={`bg-panel-2 rounded-chip animate-pulse ${className}`} style={{ height: h, width: w }} />;
 }
 
 export function StageRow({ g, showDesc = true }) {

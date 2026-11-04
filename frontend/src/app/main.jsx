@@ -4,6 +4,7 @@ import '../styles.css';
 import { makeStore } from '../lib/store.js';
 import { boot, dataMode, useAccount } from '../lib/account.js';
 import { AuthPage, LinkPage } from './Account.jsx';
+import { Logo } from '../components/ui.jsx';
 import Shell from './Shell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import { Machines, MachineDetail } from './pages/Machines.jsx';
@@ -47,7 +48,12 @@ function App({ a }) {
 function Root() {
   const a = useAccount();
   const sample = dataMode() === 'sample';
-  if (a.status === 'loading') return <div className="min-h-screen bg-bg" aria-busy="true" />;
+  if (a.status === 'loading') return (
+    <div role="status" aria-label="Loading Resonance" className="min-h-screen bg-bg flex flex-col items-center justify-center gap-5 opacity-0 animate-[fadein_.3s_ease_.3s_forwards]">
+      <Logo href="/" />
+      <span className="size-5 rounded-full border-2 border-line-2 border-t-[var(--accent)] animate-spin" />
+    </div>
+  );
   if (a.status === 'out' && !sample) return <AuthPage a={a} />;
   if (a.status === 'in' && a.hash.startsWith('#/link')) return <LinkPage a={a} />;
   return <App a={a} />;
