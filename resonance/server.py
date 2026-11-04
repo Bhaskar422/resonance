@@ -19,6 +19,7 @@ turns accounts off for a private single-user install.
 from __future__ import annotations
 
 import json
+import mimetypes
 import os
 import re
 import shutil
@@ -516,6 +517,7 @@ def get_run(run: str, user: dict = Depends(current_user)) -> dict:
 
 
 WEB_WIDTHS = {480, 960}  # thumbnail sizes the web app asks for with ?w=
+mimetypes.add_type("image/webp", ".webp")  # slim Python images lack it, and nosniff makes the type matter
 
 
 def _web_image(png: Path, width: int | None) -> Path:
