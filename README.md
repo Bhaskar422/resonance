@@ -1,213 +1,242 @@
 # Resonance
 
-Point a phone at a running machine, film it in slow motion, and Resonance shows you the
-vibration you can't see, measures its frequency, and tells you what is wrong.
+**A vibration analyzer in your pocket.** Film a running machine in slow motion with a phone.
+Resonance shows the vibration you can't see, measures its frequency from the pixels, tells you
+what is wrong with evidence you can check, shows where to act, and proves the repair worked.
 
-1. **See**: Segment Anything Model 3.1 (SAM 3.1) finds the part you name ("motor housing",
-   "fan guard"). Motion magnification is then applied *only inside that mask*, so invisible
-   shaking becomes visible.
-2. **Measure**: the vibration frequency (Hz) comes straight from the pixels inside the mask,
-   checked against a phone accelerometer (phyphox) as ground truth.
-3. **Diagnose**: Muse Spark combines the measurements, the magnified video, the audio and the
-   equipment manual into an evidence-backed diagnosis. Every manual quote it cites is checked
-   against the PDF.
-4. **Show the fix**: Muse Image edits the real frame to show where to act and what the fixed
-   machine looks like.
-5. **Check the fix**: film again after the repair; Resonance compares the vibration before and
-   after, and Muse Spark judges whether the repair did what the diagnosis predicted.
+Entry for the **Meta Global AI Developer Hackathon** (Indie Developer track).
 
-Entry for the Meta Global AI Developer Hackathon (Indie Developer track).
+- **Demo video (3 min):** _link added after upload_
+- **Live site:** _link added after deployment_ (see [Deployment](#deployment))
+- **Code:** this repository, Apache-2.0
 
-## Built during the hackathon (Oct 27 – Nov 4, 2026)
+## How it works
 
-All code in this repository was written during the hackathon. The git history is the record.
+```mermaid
+flowchart LR
+  A[Phone slow-mo clip<br/>240 fps] --> B[SAM 3.1<br/>finds the part<br/>from one word]
+  B --> C[Resonance<br/>measures Hz from pixels<br/>magnifies ×20]
+  P[phyphox<br/>accelerometer, optional] --> C
+  C --> D[Muse Spark 1.3<br/>diagnoses with evidence<br/>cites the manual]
+  S[Muse Spark 1.2<br/>listens to the sound] --> D
+  D --> E[Muse Image<br/>marks where to act<br/>and the fixed state]
+  E --> F[Rescan after the fix<br/>Muse Spark checks<br/>its own prediction]
+```
 
-| Component | Path | What it does |
+1. **See.** SAM 3.1 segments the part you name (`fan`, `mirror`, `motor housing`). Motion
+   magnification is applied only inside that mask, so invisible shaking becomes visible.
+2. **Measure.** The vibration frequency comes straight from the pixels inside the mask
+   (sub-pixel motion tracking and a spectrum on the true frame times). A phone accelerometer
+   running [phyphox](https://phyphox.org) can be laid on the machine as ground truth.
+3. **Diagnose.** Muse Spark weighs the measurements, the magnified video, the sound and the
+   equipment manual, and returns ranked faults with evidence. Every manual quote it cites is
+   checked against the PDF.
+4. **Show the fix.** Muse Image edits the real frame: where to act, and what fixed looks like.
+5. **Prove it.** Film again after the repair. Resonance compares the vibration at the fault
+   frequency, and Muse Spark judges whether the result matches the prediction it made.
+
+### Which Meta model does what
+
+| Model | Job in Resonance | Where |
 |---|---|---|
-| Project scaffold | `pyproject.toml`, `LICENSE`, `README.md` | uv packaging, Apache-2.0 |
-| Synthetic test clips | `resonance/synthetic.py` | Textured square vibrating at known sub-pixel amplitudes, plus a distractor outside the mask |
-| Frequency measurement | `resonance/frequency.py` | Lucas–Kanade motion inside a mask, FFT spectrum, peak refinement, harmonic detection robust to codec artifacts |
-| Masked motion magnification | `resonance/magnify.py` | Streaming linear Eulerian magnification (from the paper), applied only inside the mask |
-| Video I/O for any phone | `resonance/io.py` | Rotation, HDR tone-mapping, VFR timestamps, re-timed slow-mo correction, lossless frame streaming |
-| Accelerometer ground truth | `resonance/accel.py` | phyphox CSV/zip (iOS and Android formats), video-vs-sensor comparison with Nyquist checks |
-| Meta Model API client and cost ledger | `resonance/api.py` | Every call logged to `out/costs.jsonl` with an estimated cost; refuses Contributor-mode models |
-| SAM 3.1 client | `resonance/sam_client.py` | Image and video segmentation over the Responses API, decoded with `meta_sam_parser` |
-| Analysis pipeline and CLI | `resonance/pipeline.py`, `resonance/cli.py`, `resonance/report.py` | `resonance analyze` and `resonance demo`, side-by-side video, spectrum plot, `report.json` |
-| Diagnosis | `resonance/diagnose.py`, `resonance/audio.py` | Muse Spark 1.3 strict-schema fault report from measurements, video, spectrum, key frame and manual; Muse Spark 1.2 listens to the soundtrack; manual citations verified against the PDF |
-| Fix visualization | `resonance/visualize.py` | Muse Image edits of the real key frame: where to act, and the fixed state |
-| Rescan after fix | `resonance/compare.py` | Before/after amplitude at the fault frequency and harmonics, verdict, Muse Spark check against the diagnosis's prediction |
-| Web API | `resonance/server.py` | Upload, background jobs with per-stage progress, runs, files, rescan comparison, cost ledger |
-| Accounts | `resonance/auth.py`, `resonance/oauth.py` | Email and password (scrypt), GitHub and Google sign-in, sessions, access tokens, per-user runs, browser approval for the CLI |
-| CLI for your account | `resonance/remote.py`, `resonance/clipcheck.py` | `resonance check`, `login`, `upload`, `runs`, `pull`, `whoami`, `logout` |
-| iPhone companion app | `companion/ios/` | SwiftUI: records 240 fps slow motion with focus and exposure locked, signs in, uploads and follows the analysis |
-| Web app | `frontend/` (built into `resonance/web/dist/`), `scripts/export_sample.py` | React + Tailwind: marketing site, dashboard, machines, guided analysis, run report, certificate of fix, recording guide, usage & cost, settings |
-| API probes | `scripts/probe_*.py` | Print raw API responses to verify schemas before relying on them |
-| Tests | `tests/` | 72 tests, all offline |
+| **SAM 3.1** | Finds the machine part from a one-word prompt; its mask is where motion is measured and magnified | `resonance/sam_client.py` |
+| **Muse Spark 1.3** | Diagnosis: ranked faults with supporting and contradicting evidence, severity, fix plan, manual citations, rotation check against the rated speed; later judges the rescan | `resonance/diagnose.py`, `resonance/compare.py` |
+| **Muse Spark 1.2** | Listens to the soundtrack and describes it as extra evidence | `resonance/audio.py`, `resonance/diagnose.py` |
+| **Muse Image** | Edits the real key frame: marks where to act and shows the fixed state | `resonance/visualize.py` |
 
-## Setup
+Every call is logged with its estimated cost in `out/costs.jsonl`. A full diagnosis with a
+manual attached costs about **$0.14**; SAM 3.1 is $0.0025 a clip.
+
+## Results on real footage
+
+All recorded by us with an iPhone in slow motion; numbers from the runs themselves.
+
+| Case | What Resonance measured | Independent check | Outcome |
+|---|---|---|---|
+| Desk fan, putty on one blade (night) | 16.42 Hz, 0.227 px | phyphox peak at 16.42 Hz | Imbalance diagnosed; after removing the putty the 16.42 Hz shake fell **97.5 %** (−32 dB) |
+| Desk fan, putty on one blade (daylight) | 33.48 Hz = 2,009 RPM, 0.380 px | phyphox 33.48 Hz, **0.02 %** apart; manual: Medium mode 2,070 ± 200 RPM | Imbalance, 82 % confidence, 3/3 manual quotes verified |
+| Same fan, dropped on purpose, putty removed | no new harmonics; fan restarted in Low mode, 1,633 RPM (manual: 1,600 ± 200) | phyphox | At its own speed the shake fell **91 %** (camera) and **96 %** (sensor) |
+| Motorcycle mirror, idle (Royal Enfield Scram 411) | 44.95 Hz → 1,349 RPM (mirror at 2× crank, inferred) | manual: idle 1,300 ± 100 RPM | Within spec; revving tracked 49 → 59 Hz, phyphox 0.18 % apart |
+| JBL Flip 5 playing 60 / 70 / 80 Hz tones | 59.994 / 69.998 / 79.984 Hz | the tone generator | All three within **0.02 Hz** |
+
+## Try it
+
+### On the hosted site
+
+Sign up with email and password or GitHub, upload a slow-motion clip (or browse the example
+runs), and get a report you can share. Each account can run 5 analyses and 3 diagnoses a day.
+
+### With the CLI
+
+```bash
+pipx install git+https://github.com/Bhaskar422/resonance      # or: uv tool install git+https://github.com/Bhaskar422/resonance
+resonance check clip.MOV                                     # free, local (needs ffmpeg): is this clip good enough?
+resonance login --server https://<your server>               # approve in the browser, like gh auth login
+resonance upload clip.MOV --prompt fan --machine "NUUK LĪT table fan" --accel phyphox.csv --manual manual.pdf
+resonance runs                                               # your runs, newest first
+resonance pull <run>                                         # download the report, images and magnified video
+resonance whoami
+resonance logout
+```
+
+`upload` checks the clip first (it refuses a 30 fps copy) and prints the report link when the
+analysis is done. The token is stored in `~/.config/resonance/credentials.json` (readable only
+by you) and sent only to the server it came from. `RESONANCE_SERVER` and `RESONANCE_TOKEN`
+override it. Scripts can use an access token from Settings → Access tokens.
+
+### Locally, with your own API key
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), ffmpeg on `PATH`.
 
 ```bash
 uv sync
-cp .env.example .env   # then put your Meta Model API key in META_API_KEY
-```
+cp .env.example .env          # put your Meta Model API key in META_API_KEY
 
-## Usage
-
-```bash
-# Offline sanity check: full pipeline on a synthetic clip with a known 17 Hz vibration
-uv run resonance demo
-
-# A real clip: SAM 3.1 segments the part, then measure, magnify and compare
-uv run resonance analyze samples/fan.mov --prompt "motor housing" --accel samples/phyphox.zip
-
-# No API: give the region yourself
-uv run resonance analyze samples/fan.mov --box 400,300,900,700
-
-# Diagnose (Muse Spark), then show the fix on the real frame (Muse Image)
-uv run resonance diagnose out/<run> --manual samples/fan_manual.pdf --machine "desk fan"
+uv run resonance demo         # offline: full pipeline on a synthetic clip with a known 17 Hz vibration
+uv run resonance analyze clip.MOV --prompt fan --accel phyphox.csv
+uv run resonance diagnose out/<run> --manual manual.pdf --machine "desk fan"
 uv run resonance visualize out/<run>
-
-# After the repair, film again from the same spot and compare
-uv run resonance compare out/<before-run> out/<after-run>
-
-# Or do everything in the browser
-uv run resonance serve        # site at http://127.0.0.1:8000, workspace at /app
-
-# Before uploading anything: is this clip good enough? (free, local)
-uv run resonance check samples/IMG_1297.MOV
+uv run resonance compare out/<before-run> out/<after-run>    # after the repair, same camera spot
+uv run resonance serve        # web app at http://127.0.0.1:8000 (workspace at /app)
 ```
 
-### Accounts
+No API key? `--box x1,y1,x2,y2` gives the region yourself and skips SAM.
 
-The workspace and the whole API need an account. The website opens on a sign-in page; the
-first account created on a server is its admin, who sees every run and the full cost ledger.
-Everyone else sees their own runs, plus runs nobody owns (made with the CLI on the server
-machine), which appear as shared examples. The sample data is open without an account.
+## Accounts and login
 
-- **Email and password** work out of the box. Passwords are hashed with scrypt; sessions and
-  access tokens are stored only as SHA-256 hashes in `out/accounts.db`.
-- **GitHub and Google** buttons appear once their app credentials are in `.env`:
+The workspace and the API need an account; the marketing site and sample data don't. The first
+account on a server is its admin (sees every run and the full cost ledger). Everyone else sees
+their own runs plus example runs.
 
-  ```bash
-  RESONANCE_GITHUB_CLIENT_ID=...       # github.com > Settings > Developer settings > OAuth Apps
-  RESONANCE_GITHUB_CLIENT_SECRET=...   # callback URL: <server>/api/auth/github/callback
-  RESONANCE_GOOGLE_CLIENT_ID=...       # console.cloud.google.com > Credentials > OAuth client ID (Web)
-  RESONANCE_GOOGLE_CLIENT_SECRET=...   # redirect URI: <server>/api/auth/google/callback
-  RESONANCE_PUBLIC_URL=https://...     # only when the server sits behind a proxy
-  ```
-
-  A provider sign-in joins an existing account only through a verified email address.
-- **Access tokens** for scripts: Settings > Access tokens, sent as `Authorization: Bearer rsn_...`.
-- **Delete account** (Settings) erases the account, its sign-ins, tokens, runs and uploaded files.
-- **Privacy policy and terms** are served at `/privacy` and `/terms`, the URLs a Google consent
-  screen asks for. The square logo for consent screens is in `brand/`, made by `scripts/make_logo.py`.
-- `RESONANCE_AUTH=off` turns accounts off for a private, single-user install.
-
-### CLI with your account
-
-```bash
-uv run resonance login --server http://127.0.0.1:8000   # approve in the browser, like gh auth login
-uv run resonance upload samples/IMG_1297.MOV --prompt fan --machine "NUUK LIT v2 table fan" \
-    --accel samples/fan_before_accel.csv --manual samples/fan_manual.pdf
-uv run resonance runs                 # your runs, newest first
-uv run resonance pull <run>           # download the report, images and magnified video
-uv run resonance whoami
-uv run resonance logout
-```
-
-`upload` checks the clip first (it refuses a 30 fps copy) and prints the report link when the
-analysis is done. The token is saved in `~/.config/resonance/credentials.json`, readable only by
-you, and sent only to the server it came from. `RESONANCE_SERVER` and `RESONANCE_TOKEN` override it.
-
-### iPhone companion app
-
-`companion/ios/` is a SwiftUI app that records the clip Resonance needs and sends it to your
-account: the back camera at its highest frame rate (240 fps, 1080p), tap to lock focus and
-exposure, a 14-second recording with sound, then upload with live progress and a link to the
-report. Sign in with email and password, or approve on the website (for GitHub and Google
-accounts). Runs lists your results.
-
-1. Run the server where the phone can reach it: `uv run resonance serve --host 0.0.0.0`.
-2. Open `companion/ios/Resonance.xcodeproj` in Xcode, choose your team under Signing &
-   Capabilities, plug in the iPhone and press Run.
-3. In the app, enter the Mac's address on the same Wi-Fi, e.g. `http://192.168.1.10:8000`.
-
-### Web app
-
-The built app is committed in `resonance/web/dist/`, so `resonance serve` needs no JavaScript
-toolchain. To change it, edit `frontend/` and rebuild with [Bun](https://bun.sh):
-
-```bash
-cd frontend
-bun install
-bun run dev      # http://localhost:5173, proxies /api and /files to resonance serve on :8000
-bun run build    # writes resonance/web/dist
-```
-
-The workspace starts in **Live** mode (your runs from `out/`). Settings → Data source switches to
-**Sample** mode, which shows labelled sample and demo data without a backend.
-
-Each run writes `out/<run>/`:
-
-| File | Contents |
+| Sign-in | Notes |
 |---|---|
-| `side_by_side.mp4` | Original and magnified, mask outlined, played back in slow motion |
-| `spectrum.png` | Vibration spectrum from the video (and the accelerometer, when given) |
-| `report.json` | fps, dominant Hz, harmonics, accelerometer match and % error, warnings, API cost |
-| `mask_overlay.png`, `mask.png` | The segmented part |
-| `signals.npz` | Raw displacement signals and timestamps |
-| `diagnosis.json`, `diagnosis.md`, `action_point.png` | Muse Spark diagnosis (after `diagnose`) |
-| `where_to_act.png`, `fixed_state.png`, `now_vs_fixed.png` | Muse Image edits (after `visualize`) |
-| `compare.json`, `compare.png` | Rescan comparison (after `compare`, in the after-run folder) |
+| Email and password | Works out of the box. Passwords hashed with scrypt; sessions and tokens stored only as SHA-256 hashes; repeated failures are rate-limited |
+| GitHub | Set `RESONANCE_GITHUB_CLIENT_ID` / `_SECRET`; callback `<server>/api/auth/github/callback` |
+| Google | Set `RESONANCE_GOOGLE_CLIENT_ID` / `_SECRET`; redirect `<server>/api/auth/google/callback` |
+| CLI | `resonance login` shows a code and opens the site to approve it (device flow) |
+| Scripts | Access tokens, sent as `Authorization: Bearer rsn_...` |
 
-Run `uv run resonance analyze --help` for all options (`--capture-fps` for re-timed slow-mo,
-`--start`/`--duration`, `--alpha`, `--fmin`/`--fmax`, `--select`).
+A GitHub or Google sign-in joins an existing account only through a verified email.
+Settings → Delete account erases the account, its sign-ins, tokens, runs and uploads. The
+privacy policy and terms are at `/privacy` and `/terms`. `RESONANCE_AUTH=off` turns accounts off
+for a private, single-user install.
 
-### Recording a clip (iPhone or Android)
+## Deployment
 
-1. Put the phone on a tripod that does **not** touch the machine or its table. Resonance
-   measures the camera too (a ring around the mask) and warns if the camera shakes.
-2. Record in slow motion at 240 fps, in good light, for 5–10 s.
-3. Transfer the original file. iPhone: AirDrop, or share with "All Photos Data" enabled.
-   Android: copy the file over USB. If a clip was saved at normal speed, pass
-   `--capture-fps 240`.
-4. Optional ground truth: lay a second phone on the machine, record "Acceleration (without g)"
-   in [phyphox](https://phyphox.org), and export CSV. iPhones sample at about 100 Hz, so only
-   frequencies below about 50 Hz can be checked against them.
-
-### API probes
+The app is one Python process (API, background analysis worker, web app) plus a data folder.
+It needs a long-running server with ffmpeg and a disk, so serverless platforms (Vercel
+functions, Lambda) don't fit; a small VM does.
 
 ```bash
-uv run python scripts/probe_models.py                                      # free
-uv run python scripts/probe_sam_image.py samples/fan.mov --prompt "motor housing"   # $0.0025
-uv run python scripts/probe_sam_video.py samples/fan.mov --prompt "fan blade"       # ~$0.05
-uv run python scripts/probe_image_gen.py "a desk fan on a table" --out samples/fan.png  # $0.01
-uv run python scripts/probe_spark_video.py out/<run>/side_by_side.mp4 out/<run>/spectrum.png  # ~$0.01
+# on a fresh Ubuntu VM (e.g. AWS EC2 t3.large, ports 80 and 443 open) with Docker installed
+git clone https://github.com/Bhaskar422/resonance && cd resonance
+cp .env.example .env                       # META_API_KEY, OAuth keys, limits
+RESONANCE_DOMAIN=resonance.example.com docker compose -f deploy/docker-compose.yml up -d --build
 ```
+
+`deploy/docker-compose.yml` runs Resonance behind [Caddy](https://caddyserver.com), which
+obtains and renews the HTTPS certificate. Point the domain's DNS at the VM first (no domain:
+`<ip-with-dashes>.sslip.io` works). Runs, uploads and accounts persist in the `resonance-data`
+volume. Register `https://<domain>/api/auth/github/callback` (and the Google one) with the
+OAuth apps.
+
+### Spend limits
+
+Every paid model call starts from three endpoints, and all three are guarded:
+
+| Setting | Default | Effect |
+|---|---|---|
+| `RESONANCE_DAILY_ANALYSES` | 5 | Analyses (SAM 3.1) per account per day |
+| `RESONANCE_DAILY_DIAGNOSES` | 3 | Diagnoses (Muse Spark + Muse Image) per account per day |
+| `RESONANCE_DAILY_BUDGET_USD` | 10 in Docker, off locally | The whole site stops paid calls for the day once the cost ledger reaches this |
+
+Admins are exempt from the per-account limits, not from the site budget. Requests over a limit
+get HTTP 429 with a plain message; `/api/me` reports each account's usage.
+
+## Recording a clip
+
+1. Put the phone on a tripod that does **not** touch the machine or its table. Resonance also
+   measures a ring around the part and warns when the camera or the mount moves.
+2. Record slow motion at 240 fps, in good light, for 8–12 s, with the part filling about a third
+   of the frame. Tap and hold to lock focus and exposure.
+3. Transfer the original file (iPhone: AirDrop or share with "All Photos Data"). A 30 fps copy
+   can't measure fast vibration; `resonance check` tells you.
+4. Optional ground truth: lay a second phone on the machine running phyphox, "Acceleration
+   (without g)", and export CSV. Android phones sample at about 200 Hz, iPhones at about 100 Hz.
+
+## Honest limits
+
+- The highest measurable frequency is half the frame rate that actually arrives. iPhones record
+  slow motion on a 240 fps clock but deliver about 160 frames a second, so the limit is about
+  80 Hz for magnification and 120 Hz for measurement on the true timestamps.
+- Mirrors, brackets and stems often shake at a multiple of the running speed. Converting Hz to
+  RPM can need an inference (the bike above), which the film and reports mark as such.
+- The rescan compares the same frequency before and after. If the machine's speed changed
+  between takes, compare each take at its own running speed (we did for the dropped fan).
+- Google sign-in stays in testing mode until the OAuth brand is verified on the final domain.
+
+## The demo video
+
+Made in code, not edited by hand: every number on screen comes from the runs above.
+
+- Style and production tools: the "Visual Investigation" style from
+  [Lemo-Opuscar](https://github.com/lemomo-ai/lemo-opuscar) (MIT, styles CC BY 4.0).
+- Narration: [Chatterbox TTS](https://github.com/resemble-ai/chatterbox) (MIT), music: original
+  score and techno generated with [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) (MIT),
+  both run locally on an NVIDIA DGX Spark, which also rendered the film.
+- Footage: our own recordings. Manual pages shown as evidence: NUUK LĪT User Guide and Royal
+  Enfield Scram 411 owner's manual. Plate and face in the motorcycle footage are blurred.
+
+## Built during the hackathon (Oct 27 – Nov 4, 2026)
+
+All code in this repository was written during the hackathon; the git history is the record.
+
+| Component | Path | What it does |
+|---|---|---|
+| Frequency measurement | `resonance/frequency.py` | Lucas–Kanade motion inside a mask, spectra on true timestamps, peak refinement, harmonics, light-flicker rejection |
+| Masked motion magnification | `resonance/magnify.py` | Streaming linear Eulerian magnification, applied only inside the mask |
+| Video I/O for any phone | `resonance/io.py` | Rotation, HDR tone-mapping, variable frame rate, re-timed slow-mo correction |
+| Accelerometer ground truth | `resonance/accel.py` | phyphox CSV/zip (iOS and Android), video-vs-sensor comparison with Nyquist checks |
+| Meta Model API client and cost ledger | `resonance/api.py` | Every call logged with an estimated cost; refuses Contributor-mode models |
+| SAM 3.1 client | `resonance/sam_client.py` | Image and video segmentation, decoded with `meta_sam_parser` |
+| Analysis pipeline | `resonance/pipeline.py`, `resonance/report.py` | Mask → measure → magnify → spectrum plot, side-by-side video, `report.json` |
+| Diagnosis | `resonance/diagnose.py`, `resonance/audio.py` | Muse Spark 1.3 strict-schema fault report; Muse Spark 1.2 listens; citations verified against the PDF |
+| Fix visualization | `resonance/visualize.py` | Muse Image edits of the real key frame |
+| Rescan after fix | `resonance/compare.py` | Before/after at the fault frequency and harmonics, verdict, Muse Spark check |
+| Web API and accounts | `resonance/server.py`, `resonance/auth.py`, `resonance/oauth.py` | Uploads, background jobs, runs, rescans, accounts, OAuth, tokens, device login, spend limits |
+| CLI | `resonance/cli.py`, `resonance/remote.py`, `resonance/clipcheck.py` | Local analysis, plus `check`, `login`, `upload`, `runs`, `pull`, `whoami`, `logout` |
+| Web app | `frontend/` (built into `resonance/web/dist/`) | React + Tailwind: site, dashboard, machines, guided analysis, run report, certificate of fix, recording guide, usage and cost, settings |
+| Deployment | `Dockerfile`, `deploy/docker-compose.yml` | One container behind Caddy with automatic HTTPS |
+| Tests | `tests/` | 73 tests, all offline: `uv run pytest` |
+
+Each run writes `out/<run>/`: `side_by_side.mp4` (original and magnified), `spectrum.png`,
+`report.json`, `mask_overlay.png`, `signals.npz`, and after the later steps `diagnosis.json`,
+`where_to_act.png`, `fixed_state.png`, `compare.json`.
+
+To change the web app: `cd frontend && bun install && bun run dev` (proxies the API on :8000),
+then `bun run build` to write `resonance/web/dist/`.
 
 ## Third-party credits and licenses
 
 | Material | Use | License |
 |---|---|---|
-| [Meta Model API](https://dev.meta.ai/docs) (SAM 3.1, Muse Spark, Muse Image) | Hosted models called over HTTPS | Meta Model API terms |
+| [Meta Model API](https://dev.meta.ai/docs) (SAM 3.1, Muse Spark 1.3 and 1.2, Muse Image) | Hosted models called over HTTPS | Meta Model API terms |
 | [meta-sam-parser](https://github.com/meta-models/meta-sam) | Parses SAM 3.1 output (pip dependency, not vendored) | [SAM License](https://github.com/meta-models/meta-sam/blob/main/LICENSE) |
+| [phyphox](https://phyphox.org) (RWTH Aachen University) | Phone accelerometer recordings used as ground truth (app, not bundled) | phyphox terms |
 | NumPy, SciPy | Numerics, FFT, filters | BSD-3-Clause |
 | OpenCV (`opencv-python`) | Video decoding, image pyramids | Apache-2.0 |
 | Matplotlib | Spectrum plots | Matplotlib License (BSD-style) |
 | Typer | CLI | MIT |
 | OpenAI Python SDK | HTTP client for the OpenAI-compatible Meta Model API | Apache-2.0 |
+| httpx | CLI HTTP client | BSD-3-Clause |
 | python-dotenv | Loads `.env` | BSD-3-Clause |
 | pypdf | Reads manual text to verify citations | BSD-3-Clause |
-| FastAPI, Starlette | Web API | MIT, BSD-3-Clause |
-| Uvicorn | Web server | BSD-3-Clause |
-| python-multipart | Upload parsing | Apache-2.0 |
-| React, React DOM | Web app UI | MIT |
-| Vite, @vitejs/plugin-react | Web app build | MIT |
-| Tailwind CSS | Web app styling | MIT |
-| [IBM Plex Sans and Mono](https://github.com/IBM/plex) | Web app typefaces (loaded from Google Fonts) | SIL Open Font License 1.1 |
+| FastAPI, Starlette, Uvicorn, python-multipart | Web API and server | MIT, BSD-3-Clause, BSD-3-Clause, Apache-2.0 |
+| React, Vite, Tailwind CSS | Web app | MIT |
+| [IBM Plex Sans and Mono](https://github.com/IBM/plex) | Web app typefaces | SIL Open Font License 1.1 |
 | FFmpeg | Video probing and decoding (external binary, not distributed) | LGPL/GPL |
+| Caddy | HTTPS reverse proxy in the deployment (container image, not distributed) | Apache-2.0 |
+| Demo video only: Lemo-Opuscar, Chatterbox TTS, ACE-Step 1.5, Noto Sans, Source Serif 4 | Film style and tools, narration, music, typefaces | MIT, MIT, MIT, OFL, OFL (Lemo-Opuscar styles CC BY 4.0) |
 
 Methods implemented from the literature (our own code, no reference implementations used):
 
