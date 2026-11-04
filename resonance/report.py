@@ -104,7 +104,7 @@ class SideBySideWriter:
         m = cv2.resize(mask.astype(np.uint8), self.size, interpolation=cv2.INTER_NEAREST)
         self.contours, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         self.caption = caption
-        self.writer = VideoWriter(path, playback_fps)
+        self.writer = VideoWriter(path, playback_fps, crf=26)  # for viewing, light enough to stream; measurements use the source
 
     def _panel(self, frame: np.ndarray, label: str) -> np.ndarray:
         img = cv2.resize(frame, self.size, interpolation=cv2.INTER_AREA) if self.scale < 1 else frame.copy()
