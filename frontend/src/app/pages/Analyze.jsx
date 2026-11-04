@@ -91,7 +91,7 @@ function StepVideo({ az }) {
                     <span className="font-mono text-[11px] text-fg-3">{e.size_mb} MB{e.accel ? ' · + phyphox' : ''}{e.manual ? ' · + manual' : ''}</span>
                     <div className="flex flex-wrap gap-2 mt-1.5">
                       {e.hasRun && <Button small primary href={e.runHref}>See the result</Button>}
-                      <Button small onClick={e.use}>{e.hasRun ? 'Analyse it live · ~1 min' : 'Analyse this clip'}</Button>
+                      <Button small onClick={e.use}>{e.hasRun ? 'Analyse it live · ~3 min' : 'Analyse this clip'}</Button>
                     </div>
                   </div>
                 ))}
