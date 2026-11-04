@@ -10,7 +10,7 @@ predictable). Every run lives in out/<run>/ exactly as the CLI writes it, so CLI
 runs are interchangeable.
 
 Everything under /api and /files needs an account (resonance/auth.py): a session cookie from
-the website, or `Authorization: Bearer rsn_...` from the CLI and the companion app. Each user
+the website, or `Authorization: Bearer rsn_...` from the CLI and scripts. Each user
 sees their own runs; runs nobody owns (made with the CLI on this machine) are shared with
 everyone as examples, and the first account (the admin) sees everything. RESONANCE_AUTH=off
 turns accounts off for a private single-user install.
@@ -496,10 +496,19 @@ async def start_analysis(
 
 @app.get("/api/examples")
 def list_examples(user: dict = Depends(current_user)) -> list[dict]:
-    """Ready-made clips (with their sensor recording and manual) for people without their own footage."""
+    """Ready-made clips (with their sensor recording and manual) for people without their own footage.
+
+    `run` names a finished run of the clip, when one is on this server and visible to the caller, so
+    the result opens at once instead of after a fresh analysis."""
+    owners = {} if auth_off() else accounts().owners()
+
+    def done(run: str | None) -> str | None:
+        ok = run and RUN_NAME.match(run) and (OUT / run / "report.json").is_file() and (auth_off() or _visible(user, run, owners))
+        return run if ok else None
+
     return [{k: e.get(k) for k in ("id", "title", "note", "prompt", "machine", "duration")}
             | {"file": e["video"], "size_mb": round((e["dir"] / e["video"]).stat().st_size / 1e6, 1), "accel": e.get("accel"), "manual": e.get("manual"),
-               "thumb": f"/api/examples/{e['id']}/thumb" if (e["dir"] / "thumb.jpg").is_file() else None} for e in _examples()]
+               "thumb": f"/api/examples/{e['id']}/thumb" if (e["dir"] / "thumb.jpg").is_file() else None, "run": done(e.get("run"))} for e in _examples()]
 
 
 @app.get("/api/examples/{eid}/thumb")
@@ -689,12 +698,12 @@ def sign_out(request: Request, response: Response) -> dict:
 
 @app.post("/api/auth/token")
 def password_token(body: Credentials) -> dict:
-    """Email and password -> an access token, for the companion app's sign-in screen."""
+    """Email and password -> an access token, for clients that sign in with a password."""
     try:
         user = accounts().sign_in(body.email, body.password)
     except acct.AuthError as e:
         raise _fail(e, 401) from None
-    raw, info = accounts().new_token(user["id"], body.name or "Companion app")
+    raw, info = accounts().new_token(user["id"], body.name or "Password sign-in")
     return {"token": raw, "info": info, "user": _me(user)}
 
 
@@ -750,7 +759,7 @@ def list_tokens(user: dict = Depends(current_user)) -> list[dict]:
 
 @app.post("/api/tokens")
 def create_token(body: TokenRequest, user: dict = Depends(current_user)) -> dict:
-    """A new access token for the CLI or the companion app. The token is shown only once."""
+    """A new access token for the CLI or a script. The token is shown only once."""
     if auth_off():
         raise HTTPException(400, "accounts are off on this server; no token is needed")
     raw, info = accounts().new_token(user["id"], body.name)

@@ -217,4 +217,10 @@ def test_example_clips_and_showcase_runs(out, monkeypatch, tmp_path_factory):
     monkeypatch.setenv("RESONANCE_SHOWCASE_EMAILS", "owner@example.com")
     seen = {r["run"]: r["shared"] for r in eve.get("/api/runs").json()}
     assert seen == {"owner-run": True, "shared-example": True}
+    # an example links its finished run only for people who may see that run
+    meta = json.loads((ex / "fan-putty" / "example.json").read_text())
+    (ex / "fan-putty" / "example.json").write_text(json.dumps({**meta, "run": "owner-run"}))
+    assert eve.get("/api/examples").json()[0]["run"] == "owner-run"
+    (ex / "fan-putty" / "example.json").write_text(json.dumps({**meta, "run": "bob-run"}))
+    assert eve.get("/api/examples").json()[0]["run"] is None and bob.get("/api/examples").json()[0]["run"] == "bob-run"
     assert eve.post("/api/runs/owner-run/diagnose").status_code == 403

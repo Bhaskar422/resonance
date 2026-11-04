@@ -4,7 +4,7 @@ Everything lives in one SQLite file next to the runs (out/accounts.db). Password
 with scrypt; session cookies and access tokens are random and stored only as SHA-256 hashes,
 so a copy of the database cannot be used to sign in.
 
-Access tokens ("rsn_...") are for the CLI and the companion app: send them as
+Access tokens ("rsn_...") are for the CLI and scripts: send them as
 `Authorization: Bearer rsn_...`. The first account created is the admin, who sees every run
 and the whole cost ledger.
 """
@@ -218,7 +218,7 @@ class Accounts:
         if raw:
             self._q("delete from sessions where hash = ?", (_sha(raw),))
 
-    # ---- access tokens (CLI and companion app) ----
+    # ---- access tokens (CLI and scripts) ----
     def new_token(self, user_id: str, name: str) -> tuple[str, dict]:
         raw = TOKEN_PREFIX + secrets.token_urlsafe(32)
         tid = secrets.token_hex(6)

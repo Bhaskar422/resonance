@@ -42,7 +42,7 @@ export function AuthPage({ a }) {
         <div>
           <div className="font-mono text-[11px] font-medium leading-none tracking-[.14em] text-signal">{up ? 'NEW ACCOUNT' : 'WELCOME BACK'}</div>
           <h1 className="mt-2.5 mb-0 text-[28px] font-semibold leading-tight">{up ? 'Create your account' : 'Sign in to Resonance'}</h1>
-          <p className="mt-2 mb-0 text-fg-2 text-[14px]">Your machines, runs and reports stay in your account. The CLI and the companion app sign in to the same one.</p>
+          <p className="mt-2 mb-0 text-fg-2 text-[14px]">Your machines, runs and reports stay in your account. The command-line tool signs in to the same one.</p>
         </div>
 
         {providers.length > 0 && (
@@ -167,7 +167,7 @@ export function AccountSettings({ a }) {
         <Button small onClick={signOut}>Sign out</Button>
       </Panel>
 
-      <Panel label="ACCESS TOKENS · CLI & COMPANION APP" bodyClass="">
+      <Panel label="ACCESS TOKENS · CLI & SCRIPTS" bodyClass="">
         <p className="m-0 px-4 pt-3.5 text-[13px] text-fg-2">
           The easiest way is <code className="font-mono text-[12.5px] text-fg">resonance login --server {location.origin}</code>, which opens this site to approve it.
           For scripts, make a token here and pass it as <code className="font-mono text-[12.5px] text-fg">--token</code> or <code className="font-mono text-[12.5px] text-fg">RESONANCE_TOKEN</code>.

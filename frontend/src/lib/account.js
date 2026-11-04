@@ -1,5 +1,5 @@
 /* Who is signed in, and the account actions: sign in or up (email, GitHub, Google), sign out,
-   access tokens for the CLI and the companion app, and approving a CLI login.
+   access tokens for the CLI and scripts, and approving a CLI login.
    Kept apart from core.js: the workspace only mounts once someone is signed in. */
 import { useSyncExternalStore } from 'react';
 

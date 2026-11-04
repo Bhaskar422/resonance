@@ -1,4 +1,4 @@
-import { Eyebrow, Switch, tint } from '../../components/ui.jsx';
+import { Button, Eyebrow, Switch, tint } from '../../components/ui.jsx';
 
 const H2 = 'm-0 text-[18px] font-semibold';
 const FIELD_LABEL = 'font-mono text-[10.5px] font-medium leading-none tracking-[.1em] text-fg-3';
@@ -84,12 +84,16 @@ function StepVideo({ az }) {
               <div className="font-mono text-[11px] font-medium leading-none tracking-[.12em] text-fg-2">NO FOOTAGE? TRY ONE OF OURS</div>
               <div className="grid gap-2.5" style={GRID(220)}>
                 {az.examples.map(e => (
-                  <button key={e.id} type="button" onClick={e.use} className="card text-left p-3.5 flex flex-col gap-1.5 hover:border-[var(--accent)] cursor-pointer">
+                  <div key={e.id} className="card text-left p-3.5 flex flex-col gap-1.5">
                     {e.thumb && <img src={e.thumb} alt="" className="block w-full aspect-video object-cover rounded-chip border border-line mb-1" />}
                     <span className="font-semibold text-[14px]">{e.title}</span>
                     {e.note && <span className="text-fg-2 text-[12.5px] leading-[1.45]">{e.note}</span>}
                     <span className="font-mono text-[11px] text-fg-3">{e.size_mb} MB{e.accel ? ' · + phyphox' : ''}{e.manual ? ' · + manual' : ''}</span>
-                  </button>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {e.hasRun && <Button small primary href={e.runHref}>See the result</Button>}
+                      <Button small onClick={e.use}>{e.hasRun ? 'Analyse it live · ~1 min' : 'Analyse this clip'}</Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
