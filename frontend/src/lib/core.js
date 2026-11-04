@@ -375,7 +375,7 @@ export function createApp(opts = {}) {
   const freqMain = hz => S.units === 'cpm' ? int(hz * 60) + ' CPM' : fx(hz, 2) + ' Hz';
   const freqAlt = hz => S.units === 'cpm' ? fx(hz, 2) + ' Hz' : int(hz * 60) + ' CPM';
   const tag = r => r._sample ? CONFIG.SAMPLE_LABEL : r._demo ? CONFIG.DEMO_LABEL : '';
-  const imgBg = url => url ? `center / cover no-repeat url("${url}")` : STRIPE;
+  const imgBg = url => url ? `center / cover no-repeat url("${url}"), ${STRIPE}` : STRIPE;  // stripes show until the image arrives
   const thumbBg = r => imgBg(r.thumb);
 
   function runItem(r, ms) {

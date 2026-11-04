@@ -273,7 +273,7 @@ def _summary(run_dir: Path, owner: str | None = None, user: dict | None = None, 
         "freq_hz": r["vibration"]["dominant"]["freq_hz"],
         "fault": dx["diagnosis"]["primary_fault"] if dx else None,
         "severity": dx["diagnosis"]["severity"] if dx else None,
-        "thumb": f"/files/{r['run']}/key_frame.png" if (run_dir / "key_frame.png").exists() else f"/files/{r['run']}/mask_overlay.png",
+        "thumb": f"/files/{r['run']}/key_frame.png?w=480" if (run_dir / "key_frame.png").exists() else f"/files/{r['run']}/mask_overlay.png?w=480",
     }
 
 
@@ -427,14 +427,42 @@ def get_run(run: str, user: dict = Depends(current_user)) -> dict:
     }
 
 
+WEB_WIDTHS = {480, 960}  # thumbnail sizes the web app asks for with ?w=
+
+
+def _web_image(png: Path, width: int | None) -> Path:
+    """A WebP copy of a run image for browsers, about a tenth of the PNG, made once and kept in .web/."""
+    out = png.parent / ".web" / f"{png.stem}-{width or 'full'}.webp"
+    if out.exists() and out.stat().st_mtime >= png.stat().st_mtime:
+        return out
+    import cv2
+
+    img = cv2.imread(str(png), cv2.IMREAD_UNCHANGED)
+    if img is None:
+        return png
+    if width and img.shape[1] > width:
+        img = cv2.resize(img, (width, round(img.shape[0] * width / img.shape[1])), interpolation=cv2.INTER_AREA)
+    out.parent.mkdir(exist_ok=True)
+    tmp = out.with_name(f"{out.stem}.{uuid.uuid4().hex[:8]}.webp")
+    if not cv2.imwrite(str(tmp), img, [cv2.IMWRITE_WEBP_QUALITY, 85]):
+        return png
+    tmp.replace(out)
+    return out
+
+
 @app.get("/files/{run}/{name}")
-def get_file(run: str, name: str, user: dict = Depends(current_user)) -> FileResponse:
+def get_file(run: str, name: str, request: Request, w: int | None = None, user: dict = Depends(current_user)) -> FileResponse:
     if name not in SERVED_FILES:
         raise HTTPException(404, "not served")
     path = _run_dir(run, user) / name
     if not path.exists():
         raise HTTPException(404, "not found")
-    return FileResponse(path)
+    headers = {"Cache-Control": "private, max-age=600"}
+    if path.suffix == ".png":
+        headers["Vary"] = "Accept"
+        if "image/webp" in request.headers.get("accept", ""):  # browsers; the CLI's pull still gets the PNG
+            path = _web_image(path, w if w in WEB_WIDTHS else None)
+    return FileResponse(path, headers=headers)
 
 
 @app.post("/api/analyze")

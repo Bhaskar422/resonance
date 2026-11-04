@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AutoGrid, EvidenceChip, Switch, TileGrid } from '../../components/ui.jsx';
 
 // Run report (hero screen). Ported from the `RUN REPORT` section of the Instrument prototype.
@@ -130,6 +131,8 @@ function Verdict({ r }) {
 
 function VideoPanel({ r }) {
   const vd = r.video;
+  const [ready, setReady] = useState('');  // the url that has started playing
+  const loading = vd.has && ready !== vd.url;
   return (
     <section className="bg-[#050706] border border-line rounded-card overflow-hidden">
       <div data-noprint="" className="flex flex-wrap justify-between items-center gap-2.5 px-3 py-2.5 border-b border-line bg-panel panel-head">
@@ -144,8 +147,17 @@ function VideoPanel({ r }) {
       </div>
       <div className="scope relative h-[clamp(220px,30vw,360px)] overflow-hidden">
         {vd.has ? (
-          <video key={vd.url} src={vd.url} poster={vd.poster || undefined} autoPlay muted loop playsInline aria-label="Original and magnified motion"
-            className="block h-full max-w-none object-cover" style={{ width: vd.w, transform: vd.x }} />
+          <>
+            <video key={vd.url} src={vd.url} poster={vd.poster || undefined} autoPlay muted loop playsInline preload="auto" aria-label="Original and magnified motion"
+              onPlaying={() => setReady(vd.url)} className="block h-full max-w-none object-cover" style={{ width: vd.w, transform: vd.x }} />
+            {loading && (
+              <div role="status" className="absolute inset-0 flex items-center justify-center bg-[rgba(5,7,6,.45)]">
+                <span className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-chip bg-[rgba(5,7,6,.85)] border border-line font-mono text-[12px] text-[#cfd8d4]">
+                  <span className="size-3.5 rounded-full border-2 border-[#3a4541] border-t-[var(--accent)] animate-spin" />Loading video…
+                </span>
+              </div>
+            )}
+          </>
         ) : (
           <>
             <canvas ref={r.motionRef} role="img" aria-label="Simulated original vs magnified motion" className="absolute inset-0 block w-full h-full" />

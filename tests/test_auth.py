@@ -224,3 +224,20 @@ def test_example_clips_and_showcase_runs(out, monkeypatch, tmp_path_factory):
     (ex / "fan-putty" / "example.json").write_text(json.dumps({**meta, "run": "bob-run"}))
     assert eve.get("/api/examples").json()[0]["run"] is None and bob.get("/api/examples").json()[0]["run"] == "bob-run"
     assert eve.post("/api/runs/owner-run/diagnose").status_code == 403
+
+
+def test_browsers_get_small_webp_images_and_the_cli_gets_the_png(out):
+    import cv2
+    import numpy as np
+
+    bob = _user("bob@example.com")
+    _run(out, "bob-run"); server.accounts().set_owner("bob-run", bob.get("/api/me").json()["id"])
+    img = np.random.default_rng(0).integers(0, 255, (540, 960, 3), dtype=np.uint8)
+    cv2.imwrite(str(out / "bob-run" / "key_frame.png"), img)
+    png = bob.get("/files/bob-run/key_frame.png")
+    assert png.headers["content-type"] == "image/png" and png.content[:4] == b"\x89PNG"
+    web = bob.get("/files/bob-run/key_frame.png", headers={"Accept": "image/avif,image/webp,*/*"})
+    assert web.headers["content-type"] == "image/webp" and web.content[8:12] == b"WEBP" and "Accept" in web.headers["vary"]
+    thumb = bob.get("/files/bob-run/key_frame.png?w=480", headers={"Accept": "image/webp"})
+    assert cv2.imdecode(np.frombuffer(thumb.content, np.uint8), cv2.IMREAD_COLOR).shape[1] == 480
+    assert bob.get("/api/runs").json()[0]["thumb"].endswith("key_frame.png?w=480")

@@ -369,8 +369,8 @@ class VideoWriter:
         cmd += ["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "libx264", "-preset", "veryfast", "-crf", str(self.crf), "-pix_fmt", "yuv420p"]
         for k, v in self.metadata.items():
             cmd += ["-metadata", f"{k}={v}"]
-        if self.metadata:
-            cmd += ["-movflags", "+use_metadata_tags"]
+        # faststart puts the index first, so a browser can start playing before the whole file arrives
+        cmd += ["-movflags", "+faststart+use_metadata_tags" if self.metadata else "+faststart"]
         cmd += [str(self.path)]
         self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         self._shape = (h, w)
