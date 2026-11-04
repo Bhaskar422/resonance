@@ -1,0 +1,1 @@
+import{i as e,j as t,r as s}from"./ui-26ClQRlG.js";import{m}from"./store-KX2uoPHX.js";import{S as n}from"./Site-CMqo5oDM.js";const o=m("site");o.mount();function i(){const r=o.useVals();return t.jsx(n,{v:r})}e.createRoot(document.getElementById("root")).render(t.jsx(s.StrictMode,{children:t.jsx(i,{})}));

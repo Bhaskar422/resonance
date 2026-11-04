@@ -101,16 +101,16 @@ function Proof() {
     <section aria-label="Proof" className="border-y border-line bg-panel">
       <div className={`${WRAP} grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))]`}>
         <div className="px-6 py-8 border-r border-line">
-          <div className={`${stat} text-signal`}>19.00 Hz</div>
-          <p className={body}>measured to within <b className="text-fg font-mono">0.001 Hz</b> of ground truth on generated test footage.</p>
+          <div className={`${stat} text-signal`}>16.42 Hz</div>
+          <p className={body}>measured from the pixels of a real desk fan: the same peak a phone accelerometer on the machine recorded.</p>
         </div>
         <div className="px-6 py-8 border-r border-line">
-          <div className={`${stat} text-info`}>−89%</div>
-          <p className={body}>vibration after the recommended fix, proven by a rescan from the same spot.</p>
+          <div className={`${stat} text-info`}>−97.5%</div>
+          <p className={body}>vibration at the fault frequency after the recommended fix, proven by a rescan from the same spot.</p>
         </div>
         <div className="px-6 py-8">
-          <div className={`${stat} text-violet`}>≈$0.04</div>
-          <p className={body}>per analysis in model calls. Measurement and magnification run locally for free.</p>
+          <div className={`${stat} text-violet`}>≈$0.14</div>
+          <p className={body}>per full diagnosis with the manual, in model calls. Measurement and magnification run locally for free.</p>
         </div>
       </div>
     </section>

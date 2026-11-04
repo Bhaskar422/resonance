@@ -250,7 +250,7 @@ const PIPE = [
   ['Rescan', 'Film again after the repair. Proof, in dB, that it worked.', 'compare'],
 ];
 const FAQ = [
-  ['How accurate is a phone camera?', 'On generated test footage Resonance measured 19.0001 Hz against a 19.000 Hz ground truth. In the field, a 240 fps clip resolves frequencies up to 120 Hz at about 0.02 Hz resolution for a 10-second clip. Attach a phyphox accelerometer recording and it cross-checks the result.'],
+  ['How accurate is a phone camera?', 'On a real desk fan Resonance measured 16.42 Hz, the same peak a phone accelerometer (phyphox) recorded on the machine, and on a speaker playing 60, 70 and 80 Hz tones it was within 0.02 Hz. In general, a 240 fps clip resolves frequencies up to 120 Hz at about 0.02 Hz resolution for a 10-second clip. Attach a phyphox accelerometer recording and it cross-checks the result.'],
   ['Does it replace a vibration analyst?', 'It replaces the first visit. You get a measured spectrum, a ranked diagnosis with evidence for and against, and repair steps checked against the manual. For critical assets, share the report with your analyst; everything they need is in it.'],
   ['What does it cost to run?', 'About $0.04 per analysis in model calls: segmentation with SAM 3.1, diagnosis with Muse Spark and an optional fix image with Muse Image. Measurement and magnification run locally, so they cost nothing.'],
   ['Which machines work best?', 'Rotating equipment running between about 5 and 120 Hz (300–7,200 RPM): fans, pumps, motors, compressors, blowers and grinders. The machine should fill about a third of the frame.'],

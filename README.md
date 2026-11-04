@@ -6,6 +6,10 @@ what is wrong with evidence you can check, shows where to act, and proves the re
 
 Entry for the **Meta Global AI Developer Hackathon** (Indie Developer track).
 
+![A desk fan with putty on one blade, filmed at 240 fps: original on the left, the 16.42 Hz shake magnified 20× on the right](docs/hero.gif)
+
+<sub>Real footage: a desk fan with putty on one blade. SAM 3.1 outlines the fan; Resonance measures 16.42 Hz from the pixels (a phone accelerometer on the fan agrees) and magnifies it ×20.</sub>
+
 - **Demo video (3 min):** _link added after upload_
 - **Live site:** [resonance.mindgears.dev](https://resonance.mindgears.dev): sign up, then try an example clip
 - **Code:** this repository, Apache-2.0
@@ -130,9 +134,8 @@ for a private, single-user install.
 
 The app is one Python process (API, background analysis worker, web app) plus a data folder.
 It needs a long-running server with ffmpeg and a disk, so serverless platforms (Vercel
-functions, Lambda) don't fit; a small VM does. The hosted site runs this same container on
-a DGX Spark behind a Cloudflare tunnel; uploads and runs live on its local disk, so no object
-store (S3) is needed.
+functions, Lambda) don't fit; a small VM does. The hosted site runs this same setup on a small
+AWS VM; uploads and runs live on its disk, so no object store (S3) is needed.
 
 ```bash
 # on a fresh Ubuntu VM (e.g. AWS EC2 t3.large, ports 80 and 443 open) with Docker installed
@@ -147,6 +150,10 @@ obtains and renews the HTTPS certificate. Point the domain's DNS at the VM first
 volume. Register `https://<domain>/api/auth/github/callback` (and the Google one) with the
 OAuth apps.
 
+Uploads are capped at 500 MB (`RESONANCE_MAX_UPLOAD_MB`), and the server refuses an upload from
+someone not signed in before reading it. Every response carries security headers (HSTS over
+HTTPS, `nosniff`, no framing), and cookies are `Secure` behind the HTTPS proxy.
+
 One analysis uses about two CPU cores and peaks near 3 GB of memory (10 s of 240 fps 1080p
 footage takes about a minute on a recent laptop and about three on a 2 vCPU cloud VM). Jobs run one at a time by default; on a bigger machine set
 `RESONANCE_WORKERS` (e.g. 3 on 8 vCPU / 16 GB) so several people's analyses run side by side.
@@ -159,7 +166,7 @@ Every paid model call starts from three endpoints, and all three are guarded:
 |---|---|---|
 | `RESONANCE_DAILY_ANALYSES` | 5 | Analyses (SAM 3.1) per account per day |
 | `RESONANCE_DAILY_DIAGNOSES` | 3 | Diagnoses (Muse Spark + Muse Image) per account per day |
-| `RESONANCE_DAILY_BUDGET_USD` | 10 in Docker, off locally | The whole site stops paid calls for the day once the cost ledger reaches this |
+| `RESONANCE_DAILY_BUDGET_USD` | 10 in Docker and `.env.example`; off when unset | The whole site stops paid calls for the day once the cost ledger reaches this |
 
 Admins are exempt from the per-account limits, not from the site budget. Requests over a limit
 get HTTP 429 with a plain message; `/api/me` reports each account's usage.
@@ -218,7 +225,7 @@ All code in this repository was written during the hackathon; the git history is
 | CLI | `resonance/cli.py`, `resonance/remote.py`, `resonance/clipcheck.py` | Local analysis, plus `check`, `login`, `upload`, `runs`, `pull`, `whoami`, `logout` |
 | Web app | `frontend/` (built into `resonance/web/dist/`) | React + Tailwind: site, dashboard, machines, guided analysis, run report, certificate of fix, recording guide, usage and cost, settings |
 | Deployment | `Dockerfile`, `deploy/docker-compose.yml` | One container behind Caddy with automatic HTTPS |
-| Tests | `tests/` | 73 tests, all offline: `uv run pytest` |
+| Tests | `tests/` | 79 tests, all offline: `uv run pytest` |
 
 Each run writes `out/<run>/`: `side_by_side.mp4` (original and magnified), `spectrum.png`,
 `report.json`, `mask_overlay.png`, `signals.npz`, and after the later steps `diagnosis.json`,

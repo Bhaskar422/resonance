@@ -6,6 +6,7 @@ services:
     env_file: ../.env
     environment:
       RESONANCE_PUBLIC_URL: https://${RESONANCE_DOMAIN}
+      FORWARDED_ALLOW_IPS: "*"  # trust Caddy's X-Forwarded-Proto (port 8000 is not published), so cookies are Secure
     volumes:
       - resonance-data:/data
     restart: unless-stopped

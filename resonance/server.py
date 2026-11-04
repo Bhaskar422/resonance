@@ -34,6 +34,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Respon
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.datastructures import MutableHeaders
 
 from resonance import auth as acct
 from resonance import oauth
@@ -41,7 +42,7 @@ from resonance import oauth
 OUT = Path("out")
 WEB = Path(__file__).parent / "web"
 DIST = WEB / "dist"
-RUN_NAME = re.compile(r"^[\w.-]+$")
+RUN_NAME = re.compile(r"^[\w-][\w.-]*$")  # no leading dot: never "." or ".."
 EXAMPLE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,40}$")
 
 
@@ -94,6 +95,91 @@ app = FastAPI(title="Resonance")
 _jobs: dict[str, Job] = {}
 _lock = threading.Lock()
 _pool = ThreadPoolExecutor(max_workers=max(1, int(os.environ.get("RESONANCE_WORKERS") or 1)))  # analyses run side by side
+JOB_TTL = 86400  # finished jobs are forgotten after a day; their runs stay on disk
+
+
+def _add_job(job: Job) -> None:
+    now = time.time()
+    with _lock:
+        for k in [k for k, j in _jobs.items() if j.finished and now - j.finished > JOB_TTL]:
+            del _jobs[k]
+        _jobs[job.id] = job
+
+
+# ---------------------------------------------------------------------------
+# Request guard: body size, sign-in before uploads, security headers
+# ---------------------------------------------------------------------------
+
+UPLOADS = re.compile(r"^/api/(analyze|runs/[^/]+/diagnose)$")
+MAX_BODY = 1_000_000  # any other request: JSON forms of a few hundred bytes
+SECURITY_HEADERS = {"X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "strict-origin-when-cross-origin"}
+
+
+def max_upload() -> int:
+    """Largest upload in bytes (RESONANCE_MAX_UPLOAD_MB, default 500): a 12 s 240 fps clip is about 150 MB."""
+    try:
+        return int(float(os.environ.get("RESONANCE_MAX_UPLOAD_MB") or 500) * 1e6)
+    except ValueError:
+        return 500_000_000
+
+
+def _https(request: Request) -> bool:
+    """Whether people reach this server over HTTPS, also when a proxy in front speaks plain HTTP to it."""
+    return request.url.scheme == "https" or os.environ.get("RESONANCE_PUBLIC_URL", "").startswith("https://")
+
+
+class RequestGuard:
+    """Refuses an upload from someone not signed in before reading it, caps every request body
+    (so no one can fill the disk), and adds security headers to every response."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        request = Request(scope)
+        headers = dict(SECURITY_HEADERS)
+        if _https(request):
+            headers["Strict-Transport-Security"] = "max-age=31536000"
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                h = MutableHeaders(scope=message)
+                for k, v in headers.items():
+                    h.setdefault(k, v)
+            await send(message)
+
+        upload = scope["method"] == "POST" and UPLOADS.match(scope["path"])
+        limit = max_upload() if upload else MAX_BODY
+
+        def refuse(status: int, detail: str):
+            return JSONResponse({"detail": detail}, status_code=status)(scope, receive, send_with_headers)
+
+        too_big = f"this upload is over the {limit / 1e6:.0f} MB limit; trim the clip to 10-12 s"
+        if upload and optional_user(request) is None:
+            return await refuse(401, "sign in first")
+        try:
+            if int(request.headers.get("content-length") or 0) > limit:
+                return await refuse(413, too_big)
+        except ValueError:
+            return await refuse(400, "bad Content-Length")
+
+        seen = 0
+
+        async def counted():  # a body sent without Content-Length (chunked) is counted as it arrives
+            nonlocal seen
+            message = await receive()
+            if message["type"] == "http.request":
+                seen += len(message.get("body", b""))
+                if seen > limit:
+                    raise HTTPException(413, too_big)
+            return message
+
+        await self.app(scope, counted, send_with_headers)
+
+
+app.add_middleware(RequestGuard)
 
 # ---------------------------------------------------------------------------
 # Accounts
@@ -159,6 +245,7 @@ def _own(user: dict, run: str) -> bool:
 # ---- spend caps: every paid model call starts from one of the endpoints below ----
 LIMITS = {"analysis": ("RESONANCE_DAILY_ANALYSES", 5), "diagnosis": ("RESONANCE_DAILY_DIAGNOSES", 3)}
 PLURAL = {"analysis": "analyses", "diagnosis": "diagnoses"}
+_spend_lock = threading.Lock()
 
 
 def _limit(kind: str) -> int:
@@ -199,12 +286,13 @@ def guard_spend(user: dict, *kinds: str) -> None:
         raise HTTPException(429, f"this server has used today's model budget (${budget:.2f}); try again tomorrow, or browse the example runs")
     if auth_off() or user.get("admin"):
         return
-    for kind in kinds:
-        used, cap = accounts().used_today(user["id"], kind), _limit(kind)
-        if used >= cap:
-            raise HTTPException(429, f"daily limit reached: {cap} {PLURAL[kind]} per account per day; try again tomorrow")
-    for kind in kinds:
-        accounts().count_use(user["id"], kind)
+    with _spend_lock:  # check and count together, so parallel requests cannot all slip under the cap
+        for kind in kinds:
+            used, cap = accounts().used_today(user["id"], kind), _limit(kind)
+            if used >= cap:
+                raise HTTPException(429, f"daily limit reached: {cap} {PLURAL[kind]} per account per day; try again tomorrow")
+        for kind in kinds:
+            accounts().count_use(user["id"], kind)
 
 
 def _safe_name(name: str) -> str:
@@ -335,22 +423,22 @@ def _page(name: str) -> str:
     return built.read_text() if built.exists() else (WEB / "index.html").read_text()
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def index() -> str:
     return _page("index.html")
 
 
-@app.get("/app", response_class=HTMLResponse)
+@app.api_route("/app", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def workspace() -> str:
     return _page("app.html")
 
 
-@app.get("/privacy", response_class=HTMLResponse)
+@app.api_route("/privacy", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def privacy() -> str:
     return _page("privacy.html")
 
 
-@app.get("/terms", response_class=HTMLResponse)
+@app.api_route("/terms", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def terms() -> str:
     return _page("terms.html")
 
@@ -516,8 +604,7 @@ async def start_analysis(
         "start": ex.get("start") if ex else None,
         "diagnose": diagnose, "visualize": visualize, "accel": accel_path, "manual": manual_path,
     }
-    with _lock:
-        _jobs[job.id] = job
+    _add_job(job)
     _pool.submit(_work, job, video_path, form)
     return {"job": job.id}
 
@@ -600,8 +687,7 @@ async def diagnose_run(
         manual_path = up / _safe_name(manual.filename)
         with manual_path.open("wb") as dst:
             shutil.copyfileobj(manual.file, dst)
-    with _lock:
-        _jobs[job.id] = job
+    _add_job(job)
     _pool.submit(_diagnose_work, job, run_dir, manual_path, machine.strip() or None, visualize)
     return {"job": job.id}
 
@@ -649,7 +735,7 @@ def _public_base(request: Request) -> str:
 def _signed_in(request: Request, user: dict, response: Response) -> dict:
     response.set_cookie(
         COOKIE, accounts().new_session(user["id"]), max_age=acct.SESSION_DAYS * 86400,
-        httponly=True, samesite="lax", secure=request.url.scheme == "https", path="/",
+        httponly=True, samesite="lax", secure=_https(request), path="/",
     )
     return _me(user)
 
@@ -747,7 +833,7 @@ def oauth_start(provider: str, request: Request, next: str = "/app") -> Redirect
     except oauth.OAuthError as e:
         raise HTTPException(400, str(e)) from None
     resp = RedirectResponse(url, status_code=302)
-    resp.set_cookie(STATE_COOKIE, state, max_age=oauth.STATE_TTL, httponly=True, samesite="lax", secure=request.url.scheme == "https", path="/")
+    resp.set_cookie(STATE_COOKIE, state, max_age=oauth.STATE_TTL, httponly=True, samesite="lax", secure=_https(request), path="/")
     return resp
 
 

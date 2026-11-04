@@ -60,6 +60,42 @@ def test_cost_ledger_and_health(client, tmp_path):
     assert client.get("/api/health").json()["ok"] is True
 
 
+def test_pages_answer_head_and_send_security_headers(client):
+    r = client.head("/")
+    assert r.status_code == 200
+    assert r.headers["x-content-type-options"] == "nosniff" and r.headers["x-frame-options"] == "DENY"
+    assert "strict-transport-security" not in r.headers  # plain http here
+
+
+def test_cookies_are_secure_behind_an_https_proxy(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "OUT", tmp_path)
+    monkeypatch.setenv("RESONANCE_PUBLIC_URL", "https://resonance.example.com")
+    r = TestClient(server.app).post("/api/auth/signup", json={"email": "a@example.com", "password": "correct horse"})
+    assert "secure" in r.headers["set-cookie"].lower()
+    assert r.headers["strict-transport-security"].startswith("max-age=")
+
+
+def test_uploads_need_an_account_before_they_are_read(tmp_path, monkeypatch):
+    monkeypatch.setattr(server, "OUT", tmp_path)
+    r = TestClient(server.app).post("/api/analyze", files={"video": ("clip.mov", b"x" * 1000)})
+    assert r.status_code == 401 and not (tmp_path / "uploads").exists()
+
+
+def test_oversized_bodies_are_refused(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("RESONANCE_MAX_UPLOAD_MB", "0.01")
+    r = client.post("/api/analyze", files={"video": ("clip.mov", b"x" * 20_000)})
+    assert r.status_code == 413 and "limit" in r.json()["detail"]
+    assert not (tmp_path / "uploads").exists()
+    assert client.post("/api/auth/signin", json={"email": "a@example.com", "password": "x" * 2_000_000}).status_code == 413
+
+    def chunks():  # no Content-Length: counted as it streams in
+        for _ in range(4):
+            yield b"x" * 5000
+
+    r = client.post("/api/analyze", content=chunks(), headers={"content-type": "multipart/form-data; boundary=b"})
+    assert r.status_code == 413
+
+
 def test_diagnose_existing_run_runs_in_background(client, monkeypatch):
     import resonance.diagnose
     import resonance.visualize

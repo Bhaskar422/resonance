@@ -73,7 +73,7 @@ function StepVideo({ az }) {
             style={{ borderColor: az.dropBd, background: az.dropBg }}>
             <span className="font-mono text-[28px] font-medium leading-none text-signal" aria-hidden="true">⤒</span>
             <span className="font-semibold">Drop a video here, or click to browse</span>
-            <span className="font-mono text-[12px] leading-none text-fg-3">.mov · .mp4 · up to 100 MB</span>
+            <span className="font-mono text-[12px] leading-none text-fg-3">.mov · .mp4 · up to 500 MB</span>
             <input type="file" accept="video/*" onChange={az.onFile} aria-label="Choose a video" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
           </div>
           {az.isSample && (

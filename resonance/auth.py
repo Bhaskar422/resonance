@@ -158,6 +158,8 @@ class Accounts:
             raise AuthError("too many wrong passwords; wait 10 minutes and try again")
         user = self.by_email(key)
         if not user or not check_password(password or "", user["password"]):
+            if len(self._failures) > 10000:  # forget stale entries, so made-up emails cannot pile up
+                self._failures = {k: v for k, v in self._failures.items() if now - v[-1] < 600}
             self._failures[key] = [*recent, now]
             if user and not user["password"]:
                 raise AuthError("this account signs in with GitHub or Google")
